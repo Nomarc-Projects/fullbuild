@@ -1,0 +1,151 @@
+"use server";
+
+import { revalidatePath, revalidateTag } from "next/cache";
+import { sql } from "drizzle-orm";
+import { db } from "@/lib/db/client";
+import { requireUserId } from "@/lib/server-user";
+import { requireAdmin, requireSuperAdmin } from "@/lib/authz";
+import { getMaintenance, getMailThroughput, getTickerSpeed } from "@/lib/services/platform-settings-read";
+import {
+  MAINTENANCE_TAG,
+  normalizeMaintenance,
+  type MaintenanceSetting,
+  MAIL_THROUGHPUT_TAG,
+  normalizeMailThroughput,
+  type MailThroughputSetting,
+  TICKER_SPEED_TAG,
+  normalizeTickerSpeed,
+  type TickerSpeedSetting,
+} from "@/lib/services/platform-settings-shared";
+
+/* ── Maintenance mode: the write path ───────────────────────────────────
+ * Persisted in platform_setting under the key `maintenance` (drizzle
+ * 0030_platform_settings.sql). Env vars were the obvious alternative and were
+ * rejected: flipping one means a redeploy, and the whole point of this switch
+ * is that it can be thrown mid-cutover from the admin console.
+ *
+ * ONLY the admin-guarded mutation lives here. Every export of a "use server"
+ * module is a callable endpoint, so the reader deliberately sits in
+ * ./platform-settings-read (server-only) — exporting it from here published
+ * `allowEmails` to anyone who could invoke the action. Constants, the type and
+ * the normaliser are in ./platform-settings-shared, since a "use server" module
+ * may only export async functions.
+ */
+
+/**
+ * Super-admin-only write. Upserts the whole object and audits the change.
+ *
+ * Was `requireAdmin`, which meant any plain admin could take the entire public
+ * site offline. Pulling the platform down is squarely in the category of
+ * irreversible, platform-wide acts that the super_admin tier exists to hold.
+ */
+export async function setMaintenance(
+  input: Partial<MaintenanceSetting>,
+): Promise<MaintenanceSetting> {
+  const admin = await requireSuperAdmin();
+  const current = await getMaintenance();
+  const next = normalizeMaintenance({ ...current, ...input });
+
+  await db.execute(sql`
+    INSERT INTO platform_setting (key, value, updated_at, updated_by)
+    VALUES ('maintenance', ${JSON.stringify(next)}::jsonb, now(), ${admin})
+    ON CONFLICT (key) DO UPDATE
+      SET value = ${JSON.stringify(next)}::jsonb, updated_at = now(), updated_by = ${admin}
+  `);
+
+  // Toggling on/off is the security-relevant event, so record it explicitly.
+  if (current.enabled !== next.enabled) {
+    await db
+      .execute(sql`
+        INSERT INTO audit_log (actor_user_id, action, target_type, target_id, detail)
+        VALUES (${admin}, ${next.enabled ? "maintenance_on" : "maintenance_off"}, 'platform_setting', 'maintenance', ${next.etaText || null})
+      `)
+      .catch(() => {});
+  }
+
+  // `expire: 0` purges immediately: an admin flipping the switch expects the
+  // site to change now, not after the 30s window lapses. Next 16 requires this
+  // second argument.
+  revalidateTag(MAINTENANCE_TAG, { expire: 0 });
+  return next;
+}
+
+/**
+ * Admin-only write for the campaign send rate.
+ *
+ * Lives in platform_setting rather than an env var for the same reason as
+ * maintenance: the safe rate is whatever the SMTP provider actually tolerates,
+ * which is learned mid-send, and throttling a blast that is already going out
+ * must not require a redeploy.
+ *
+ * Rate changes are audited: "why did the blast crawl" and "who sped it up" are
+ * both questions worth being able to answer after the fact.
+ */
+/**
+ * Server-action read, so a client settings card can show the live value.
+ *
+ * getMailThroughput() lives in platform-settings-read.ts, which is a plain server
+ * module and therefore not callable from a client component; this is the action
+ * wrapper. Admin-gated because the sending rate is operational detail.
+ */
+export async function getMailThroughputSetting(): Promise<MailThroughputSetting> {
+  await requireAdmin();
+  return getMailThroughput();
+}
+
+export async function setMailThroughput(
+  input: Partial<MailThroughputSetting>,
+): Promise<MailThroughputSetting> {
+  // Super admin: releasing a blast is already super-admin only, and this lever
+  // decides how hard that blast hits the SMTP provider. Set too high it gets the
+  // sending domain blocklisted, which affects password resets too.
+  const admin = await requireSuperAdmin();
+  const current = await getMailThroughput();
+  const next = normalizeMailThroughput({ ...current, ...input });
+
+  await db.execute(sql`
+    INSERT INTO platform_setting (key, value, updated_at, updated_by)
+    VALUES ('mail_throughput', ${JSON.stringify(next)}::jsonb, now(), ${admin})
+    ON CONFLICT (key) DO UPDATE
+      SET value = ${JSON.stringify(next)}::jsonb, updated_at = now(), updated_by = ${admin}
+  `);
+
+  if (current.emailsPerHour !== next.emailsPerHour || current.batchSize !== next.batchSize) {
+    await db
+      .execute(sql`
+        INSERT INTO audit_log (actor_user_id, action, target_type, target_id, detail)
+        VALUES (${admin}, 'mail_throughput_changed', 'platform_setting', 'mail_throughput',
+                ${`${next.emailsPerHour}/hour, batch ${next.batchSize}`})
+      `)
+      .catch(() => {});
+  }
+
+  revalidateTag(MAIL_THROUGHPUT_TAG, { expire: 0 });
+  return next;
+}
+
+/* ── News ticker speed: the write path ──────────────────────────────────
+ * Admin (not super-admin): this only changes how fast a marquee scrolls on the
+ * public site. Nothing here can cost money or take the platform down, so it
+ * sits with the ordinary admin content controls the ticker items already use.
+ */
+export async function getTickerSpeedSetting(): Promise<TickerSpeedSetting> {
+  await requireAdmin();
+  return getTickerSpeed();
+}
+
+export async function setTickerSpeed(seconds: number): Promise<TickerSpeedSetting> {
+  const admin = await requireAdmin();
+  const next = normalizeTickerSpeed({ seconds });
+
+  await db.execute(sql`
+    INSERT INTO platform_setting (key, value, updated_at, updated_by)
+    VALUES ('ticker_speed', ${JSON.stringify(next)}::jsonb, now(), ${admin})
+    ON CONFLICT (key) DO UPDATE
+      SET value = ${JSON.stringify(next)}::jsonb, updated_at = now(), updated_by = ${admin}
+  `);
+
+  revalidateTag(TICKER_SPEED_TAG, { expire: 0 });
+  revalidatePath("/");
+  return next;
+}
