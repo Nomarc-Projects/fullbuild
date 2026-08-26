@@ -84,9 +84,9 @@ export const auth = betterAuth({
     // a security boundary — Better Auth validates the Origin header and every
     // callbackURL/redirectTo against it — and a "https://*.vercel.app" wildcard
     // trusted any deployment on a domain anyone can publish to.
-    ...[process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL]
+    ...[process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL, process.env.VERCEL_PROJECT_PRODUCTION_URL]
       .filter(Boolean)
-      .map((h) => `https://${h}`),
+      .map((h) => `https://${h.replace(/^https?:\/\//, "").replace(/\/$/, "")}`),
   ],
   emailAndPassword: {
     enabled: true,

@@ -39,7 +39,20 @@ export const stripTrailingSlash = strip;
 
 export function resolveSiteUrl(): string {
   // VERCEL_ENV is "production" only for the production deployment, not previews.
-  if (process.env.VERCEL_ENV === "production") return PRODUCTION_ORIGIN;
+  if (process.env.VERCEL_ENV === "production") {
+    // A fresh Vercel deploy serves from the project alias (*.vercel.app) until
+    // DNS cutover — trust whatever host Vercel says is live, not the hardcoded
+    // eventual domain. NEXT_PUBLIC_SITE_URL wins when set (custom-domain pin);
+    // VERCEL_PROJECT_PRODUCTION_URL is Vercel-injected and tracks the project's
+    // own production domain, custom or not. AUTH_URL/BETTER_AUTH_URL are
+    // deliberately ignored here: on Vercel those were the per-deployment URL,
+    // which is how reset links once went out pointing at nomarc-gigs.vercel.app.
+    const pinned = process.env.NEXT_PUBLIC_SITE_URL;
+    if (pinned) return strip(pinned);
+    const injected = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+    if (injected) return `https://${strip(injected.replace(/^https?:\/\//, ""))}`;
+    return PRODUCTION_ORIGIN;
+  }
 
   const explicit = process.env.BETTER_AUTH_URL || process.env.AUTH_URL;
   if (explicit) return strip(explicit);
