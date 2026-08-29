@@ -234,6 +234,12 @@ export function ExhibitorHome() {
     { quotes: 0, pendingQuotes: 0, impressions: 0, activeAds: 0, unread: 0 },
   );
   const loaded = useRef(false);
+  // Hydration safety: the welcome header resolves the company/exhibitor name
+  // from async client data (useSession + getMyCompany). Rendering the resolved
+  // name directly differs between the SSR HTML and the first client paint, so
+  // gate it behind `mounted` — the same convention professional-home.tsx uses.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     getMyCompany().then((r) => { setCompany(r.data); setCerts(r.certifications); }).catch(() => {});
@@ -294,7 +300,7 @@ export function ExhibitorHome() {
     setTrialOpen(true);
   }
 
-  const companyName = company?.name || sUser?.name || "Your Company";
+  const companyName = company?.name || (mounted && sUser?.name) || "Your Company";
   const location = company?.headquarters || "Nigeria";
   const subtitle = [company?.industry, company?.headquarters].filter(Boolean).join(" • ") || "Set up your company profile";
 
