@@ -9,3 +9,10 @@ node_modules/
 .DS_Store
 .vercel
 tsconfig.tsbuildinfo
+
+# Doppler
+.doppler.yaml
+
+# env backups
+.env.bak
+.env.*.bak
