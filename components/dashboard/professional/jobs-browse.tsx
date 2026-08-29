@@ -131,9 +131,10 @@ function FilterPanel({ sel, onToggle, activeCount, onClear, locationQuery, onLoc
 type ProfileInfo = { name: string; headline: string; location: string; practiceLicenceStatus: string };
 
 const PRACTICE_BADGE: Record<string, { label: string; cls: string; dot: string }> = {
-  registered: { label: "Registered practitioner", cls: "border-[#bbf7d0] bg-[#f0fdf4] dark:border-[#22c55e]/20 dark:bg-[#22c55e]/10", dot: "bg-[#22c55e]" },
-  in_progress: { label: "Licensing in progress", cls: "border-[#fde68a] bg-[#fffbeb] dark:border-[#f59e0b]/25 dark:bg-[#f59e0b]/10", dot: "bg-[#f59e0b]" },
-  not_licensed: { label: "Not licensed yet", cls: "border-[#e5e7eb] bg-[#f9fafb] dark:border-white/12 dark:bg-white/[0.04]", dot: "bg-[#9ca3af]" },
+  intern: { label: "Intern / Graduate / Freelancer", cls: "border-[#e5e7eb] bg-[#f9fafb] dark:border-white/12 dark:bg-white/[0.04]", dot: "bg-[#9ca3af]" },
+  consultant: { label: "Consultant", cls: "border-[#e9d5ff] bg-[#faf5ff] dark:border-[#a855f7]/25 dark:bg-[#a855f7]/10", dot: "bg-[#a855f7]" },
+  licensed: { label: "Licensed", cls: "border-[#bbf7d0] bg-[#f0fdf4] dark:border-[#22c55e]/20 dark:bg-[#22c55e]/10", dot: "bg-[#22c55e]" },
+  company: { label: "Company", cls: "border-[#bfdbfe] bg-[#eff6ff] dark:border-[#3b82f6]/25 dark:bg-[#3b82f6]/10", dot: "bg-[#3b82f6]" },
 };
 
 function ProfileSidebar() {

@@ -47,9 +47,10 @@ const PROFESSIONS = [
 ];
 
 const PRACTICE_STATUS_OPTIONS = [
-  { label: "Registered", value: "registered" },
-  { label: "In progress", value: "in_progress" },
-  { label: "Not licensed yet", value: "not_licensed" },
+  { label: "Intern / Graduate / Freelancer", value: "intern" },
+  { label: "Consultant", value: "consultant" },
+  { label: "Licensed", value: "licensed" },
+  { label: "Company", value: "company" },
 ];
 
 // SelectMenu deals in plain labels; map them back to the DB values on submit.
@@ -204,7 +205,7 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
                 <h3 className="flex items-center gap-2 text-[14px] font-semibold text-[#1e1e1e] dark:text-white"><Award size={15} className="text-[#9a9a9a]" /> Qualification</h3>
 
                 <div className="mt-3 max-w-sm">
-                  <Field label="Professional practice status" hint="Your licensing status with your regulatory body.">
+                  <Field label="Professional practice status">
                     <SelectMenu placeholder="Select status" value={practiceLicenceStatus} onChange={setPracticeLicenceStatus} options={PRACTICE_STATUS_OPTIONS.map((o) => o.label)} />
                   </Field>
                 </div>
