@@ -47,7 +47,8 @@ const PROFESSIONS = [
 ];
 
 const PRACTICE_STATUS_OPTIONS = [
-  { label: "Intern / Graduate / Freelancer", value: "intern" },
+  { label: "Intern", value: "intern" },
+  { label: "Graduate / Freelancer", value: "graduate" },
   { label: "Consultant", value: "consultant" },
   { label: "Licensed", value: "licensed" },
   { label: "Company", value: "company" },
