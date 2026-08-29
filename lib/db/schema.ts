@@ -20,6 +20,10 @@ export const profile = pgTable("profile", {
   phone: text("phone"),
   phoneVerified: boolean("phone_verified").default(false),
   availability: text("availability"), // open_to_work | hiring | none
+  /** Professional practice / licensing status shown under Qualification on the
+   *  find-work onboarding — registered | in_progress | not_licensed.
+   *  Distinct from `practiceStatus`, which drives the practice-profile page. */
+  practiceLicenceStatus: text("practice_licence_status"),
   /** intern | graduate | consultant | licensed | company — drives the
    *  conditional fields below. Null on profiles predating 0033. */
   practiceStatus: text("practice_status"),

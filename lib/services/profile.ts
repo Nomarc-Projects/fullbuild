@@ -4,9 +4,10 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { profile } from "@/lib/db/schema";
+import { profile, profileSkill, certification, workExperience, education } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
 import { requireUserId } from "@/lib/server-user";
+import { grantRole } from "@/lib/roles-internal";
 import {
   professionalChecklist,
   checklistPercent,
@@ -19,6 +20,7 @@ export type PracticeStatus = "" | "intern" | "graduate" | "consultant" | "licens
 
 export type ProfileData = {
   name: string;
+  phone: string;
   headline: string;
   location: string;
   availability: string;
@@ -56,6 +58,7 @@ export async function getMyProfile(): Promise<{ data: ProfileData; missing: Chec
   return {
     data: {
       name: session?.user?.name ?? "",
+      phone: p?.phone ?? "",
       headline: p?.headline ?? "",
       location: p?.location ?? "",
       availability: p?.availability ?? "",
@@ -98,7 +101,8 @@ export async function saveSignupDetails(input: { phone?: string; location?: stri
 }
 
 export async function saveProfile(input: {
-  name?: string; headline?: string; location?: string; availability?: string; bio?: string; avatarUrl?: string;
+  name?: string; phone?: string; headline?: string; location?: string; availability?: string; bio?: string; avatarUrl?: string;
+  practiceLicenceStatus?: string;
   practiceStatus?: PracticeStatus;
   licenseNumber?: string; practiceCompanyName?: string; practiceRegNumber?: string;
   practiceCompanyAddress?: string; practiceCompanyBio?: string;
@@ -110,9 +114,19 @@ export async function saveProfile(input: {
   const status = input.practiceStatus;
   const licensed = status === undefined || status === "licensed";
   const isCompany = status === undefined || status === "company";
+  const [existing] = await db.select({ id: profile.id, phone: profile.phone, phoneVerified: profile.phoneVerified }).from(profile).where(eq(profile.userId, uid)).limit(1);
+  // Editing the phone here (outside the OTP "Verify Number" flow) resets the
+  // verified flag only when the value actually changed, matching the "Edit
+  // Phone Number" warning's promise — a changed number loses its Tier 1 badge
+  // until re-verified.
+  const phoneChanged = input.phone !== undefined && (existing?.phone ?? "") !== (input.phone || "");
   const fields = {
     headline: input.headline, location: input.location, availability: input.availability,
     bio: input.bio, avatarUrl: input.avatarUrl,
+    ...(input.phone !== undefined
+      ? { phone: input.phone || null, phoneVerified: phoneChanged ? false : !!existing?.phoneVerified }
+      : {}),
+    ...(input.practiceLicenceStatus !== undefined ? { practiceLicenceStatus: input.practiceLicenceStatus || null } : {}),
     ...(status !== undefined ? { practiceStatus: status || null } : {}),
     ...(input.licenseNumber !== undefined || status !== undefined ? { licenseNumber: licensed ? (input.licenseNumber ?? null) : null } : {}),
     ...(input.practiceCompanyName !== undefined || status !== undefined ? { practiceCompanyName: isCompany ? (input.practiceCompanyName ?? null) : null } : {}),
@@ -120,7 +134,6 @@ export async function saveProfile(input: {
     ...(input.practiceCompanyAddress !== undefined || status !== undefined ? { practiceCompanyAddress: isCompany ? (input.practiceCompanyAddress ?? null) : null } : {}),
     ...(input.practiceCompanyBio !== undefined || status !== undefined ? { practiceCompanyBio: isCompany ? (input.practiceCompanyBio ?? null) : null } : {}),
   };
-  const [existing] = await db.select({ id: profile.id }).from(profile).where(eq(profile.userId, uid)).limit(1);
   if (existing) await db.update(profile).set({ ...fields, updatedAt: new Date() }).where(eq(profile.userId, uid));
   else await db.insert(profile).values({ userId: uid, ...fields });
   // Mirror name + avatar onto the Better Auth user so the session (and every
@@ -134,5 +147,76 @@ export async function saveProfile(input: {
   // Note: completing this form no longer grants the professional role by
   // itself — passing the aptitude quiz does (lib/services/quiz.ts).
   revalidatePath("/dashboard/profile");
+  revalidatePath("/dashboard");
+}
+
+/**
+ * Lightweight read of the saved location (the "Country / State / LGA / Address"
+ * captured on the basic profile) so the find-work onboarding can reuse it
+ * instead of asking for it again. Returns "" when there's no profile row yet.
+ */
+export async function getSavedLocation(): Promise<string> {
+  try {
+    const uid = await requireUserId();
+    const [p] = await db.select({ location: profile.location }).from(profile).where(eq(profile.userId, uid)).limit(1);
+    return p?.location ?? "";
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Find-work onboarding submit: saves the professional identity fields,
+ * the LinkedIn-style professional profile blocks (qualifications, work
+ * experience, education) AND grants the professional role in one action —
+ * the flow that replaced the aptitude quiz on /dashboard/jobs. Requiring a
+ * headline here keeps the form honest; "open_to_work" is what flips the
+ * profile tabs to professional.
+ */
+export async function completeProfessionalOnboarding(input: {
+  headline: string;
+  bio?: string;
+  location?: string;
+  availability: string;
+  practiceLicenceStatus?: string;
+  skills?: string[];
+  certifications?: { name: string; issuer?: string; year?: number }[];
+  experience?: { title: string; company: string; description?: string; location?: string; workplaceType?: string; startDate?: string; endDate?: string; current?: boolean }[];
+  education?: { school: string; degree?: string; field?: string; startYear?: number; endYear?: number; current?: boolean; description?: string }[];
+}) {
+  const uid = await requireUserId();
+  if (!input.headline.trim()) throw new Error("Job title is required.");
+  await saveProfile({
+    headline: input.headline.trim(),
+    bio: input.bio ?? "",
+    location: input.location ?? "",
+    availability: input.availability,
+    practiceLicenceStatus: input.practiceLicenceStatus ?? "",
+  });
+
+  const skillRows = (input.skills ?? []).filter((s) => s.trim()).map((s) => ({ userId: uid, name: s.trim(), kind: "skill" }));
+  if (skillRows.length) await db.insert(profileSkill).values(skillRows).onConflictDoNothing().catch(() => {});
+
+  const certRows = (input.certifications ?? []).filter((c) => c.name.trim()).map((c) => ({
+    userId: uid, name: c.name.trim(), issuer: c.issuer?.trim() || null, year: c.year ?? null,
+  }));
+  if (certRows.length) await db.insert(certification).values(certRows).catch(() => {});
+
+  const expRows = (input.experience ?? []).filter((x) => x.title.trim() && x.company.trim()).map((x) => ({
+    userId: uid, title: x.title.trim(), company: x.company.trim(), description: x.description?.trim() || null,
+    location: x.location?.trim() || null, workplaceType: x.workplaceType?.trim() || null,
+    startDate: x.startDate || null, endDate: x.current ? null : x.endDate || null, current: !!x.current,
+  }));
+  if (expRows.length) await db.insert(workExperience).values(expRows).catch(() => {});
+
+  const eduRows = (input.education ?? []).filter((e) => e.school.trim()).map((e) => ({
+    userId: uid, school: e.school.trim(), degree: e.degree?.trim() || null, field: e.field?.trim() || null,
+    startYear: e.startYear ?? null, endYear: e.current ? null : e.endYear ?? null, current: !!e.current,
+    description: e.description?.trim() || null,
+  }));
+  if (eduRows.length) await db.insert(education).values(eduRows).catch(() => {});
+
+  await grantRole(uid, "professional", "self_serve_tier1");
+  revalidatePath("/dashboard/jobs");
   revalidatePath("/dashboard");
 }

@@ -2,6 +2,7 @@ import { JobsBrowse } from "@/components/dashboard/professional/jobs-browse";
 import { ProfessionalOnboarding } from "@/components/dashboard/onboarding/professional-onboarding";
 import { getJobsForBrowse } from "@/lib/services/catalog";
 import { getSavedIds } from "@/lib/services/saved";
+import { getSavedLocation } from "@/lib/services/profile";
 import { FeatureGate } from "@/components/dashboard/shared/feature-gate";
 import { getViewer } from "@/lib/viewer-server";
 import { can } from "@/lib/entitlements";
@@ -14,10 +15,12 @@ import { can } from "@/lib/entitlements";
 export default async function SavedJobsPage() {
   const viewer = await getViewer();
   if (!can(viewer, "jobBoard")) {
+    const savedLocation = await getSavedLocation();
     return (
       <ProfessionalOnboarding
         title="Save jobs you're interested in"
         description="Set up your professional profile to browse, save and apply for roles. It takes a couple of minutes — no documents needed today."
+        savedLocation={savedLocation}
       />
     );
   }

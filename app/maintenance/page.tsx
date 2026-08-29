@@ -1,17 +1,18 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Clock } from "lucide-react";
+import { Mail } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { NotifyForm } from "@/components/maintenance/notify-form";
 import { getMaintenancePublic } from "@/lib/services/platform-settings-read";
 
 export const metadata = {
-  title: "Scheduled maintenance — Nomarc Projects",
-  description: "Nomarc Projects is briefly offline for scheduled maintenance. We'll be back shortly.",
+  title: "Welcome to Nomadic Architect",
+  description: "NomarcProject is currently under construction. Enter your email and we'll notify you once it's live.",
   robots: { index: false, follow: false },
 };
 
-// The headline/message/ETA are admin-editable, so this can't be prerendered.
+// The headline/message are admin-editable, so this can't be prerendered.
 export const dynamic = "force-dynamic";
 
 /**
@@ -84,47 +85,28 @@ export default async function MaintenancePage() {
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#caa400] opacity-75" />
           <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#caa400]" />
         </span>
-        Scheduled maintenance
+        Under construction
       </span>
 
       <div className="shrink-0">
         <h1 className="max-w-[620px] text-[21px] font-bold leading-tight tracking-[-0.01em] text-[#1e1e1e] dark:text-white sm:text-[27px] lg:text-[30px]">
-          {maintenance.headline}
+          Welcome to Nomadic Architect
         </h1>
         <p className="mt-2 max-w-[520px] text-[13px] leading-snug text-[#6b6b6b] dark:text-white/60 sm:mt-3 sm:text-[14.5px] sm:leading-relaxed">
-          {maintenance.message}
+          NomarcProject is currently under construction. Enter your email below so we can notify
+          you once it&apos;s live.
         </p>
       </div>
 
-      {maintenance.etaText ? (
-        <p className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[#ececec] bg-white px-3.5 py-1.5 text-[12.5px] font-semibold text-[#1e1e1e] dark:border-white/10 dark:bg-white/[0.03] dark:text-white sm:px-4 sm:py-2 sm:text-[13px]">
-          <Clock size={14} className="text-[#caa400] dark:text-[#ffd716]" />
-          {maintenance.etaText}
+      <div className="flex w-full shrink-0 flex-col items-center gap-2.5">
+        <NotifyForm />
+        <p className="inline-flex items-center gap-1.5 text-[11.5px] text-[#9a9a9a] sm:text-[12px]">
+          <Mail size={12} /> No spam — we&apos;ll only write when we&apos;re ready.
         </p>
-      ) : null}
-
-      {/* Side by side even on the narrowest phone: two short labels stack to
-          ~100px of height for no benefit, and that is the difference between
-          fitting a 640px-tall screen and not. */}
-      <div className="flex shrink-0 flex-row items-center justify-center gap-2.5 sm:gap-3">
-        <Link
-          href="/"
-          className="inline-flex items-center justify-center rounded-xl bg-[#ffd716] px-5 py-2.5 text-[13px] font-bold text-[#1e1e1e] transition-colors hover:bg-[#e6c114] sm:px-6 sm:py-3 sm:text-[13.5px]"
-        >
-          Try again
-        </Link>
-        {/* info@, not support@ — support@nomarcprojects.com is not one of the
-            mailboxes provisioned on the mail server, so it would hard-bounce. */}
-        <a
-          href="mailto:info@nomarcprojects.com"
-          className="inline-flex items-center justify-center rounded-xl border border-[#e3e3e3] px-5 py-2.5 text-[13px] font-semibold text-[#1e1e1e] transition-colors hover:border-[#ffd716] dark:border-white/15 dark:text-white sm:px-6 sm:py-3 sm:text-[13.5px]"
-        >
-          Contact support
-        </a>
       </div>
 
       <p className="shrink-0 text-[11.5px] text-[#9a9a9a] sm:text-[12px]">
-        &copy; {new Date().getFullYear()} Nomarc Projects by Nomadic Architects.
+        &copy; {new Date().getFullYear()} NomarcProject by Nomadic Architect.
       </p>
     </main>
   );

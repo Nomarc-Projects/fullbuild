@@ -29,7 +29,7 @@ export async function getAccountInfo() {
 
   const [p] = await db.select({
     headline: profile.headline, location: profile.location, yearsExperience: profile.yearsExperience,
-    phone: profile.phone, phoneVerified: profile.phoneVerified,
+    phone: profile.phone, phoneVerified: profile.phoneVerified, practiceLicenceStatus: profile.practiceLicenceStatus,
   }).from(profile).where(eq(profile.userId, uid)).limit(1).catch(() => []);
 
   const [c] = await db.select({
@@ -51,6 +51,7 @@ export async function getAccountInfo() {
     yearsExperience: p?.yearsExperience ?? null,
     phone: p?.phone ?? "",
     phoneVerified: !!p?.phoneVerified,
+    practiceLicenceStatus: p?.practiceLicenceStatus ?? "",
     companyName: c?.name ?? "",
     companyHq: c?.headquarters ?? "",
     exhibitor: { phone: c?.phone ?? "", phoneVerified: !!c?.phoneVerified, contactPerson: c?.contactPerson ?? "", email: c?.email ?? "", emailVerified: !!c?.emailVerified },

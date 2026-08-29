@@ -10,7 +10,6 @@ import { KycView, VerificationLevelCard } from "@/components/dashboard/kyc-view"
 import { StatusBadge } from "@/components/dashboard/kit/status-badge";
 import { cn } from "@/lib/utils";
 import type { ProfileData } from "@/lib/services/profile";
-import { isProfessionalOccupation } from "@/lib/data/occupations";
 import type { ChecklistItem } from "@/lib/services/profile-checklist";
 import type { Experience, Cert, Edu } from "@/lib/services/qualifications";
 import type { KycState } from "@/lib/services/kyc";
@@ -41,23 +40,28 @@ export function ProfileTabs({ initial = "public", profile, missing = NO_MISSING,
   const router = useRouter();
 
   /**
-   * The completion tracker and verification level are a professional's tools:
-   * they measure what an AEC professional needs to be discoverable, hireable
-   * and trusted. A member whose occupation isn't one of the listed professions
-   * (they picked "Others" and typed their own — a client, say) has finished
-   * what this profile asks of them, can't apply for jobs either way, so neither
-   * card would mean anything to them.
+   * A member only counts as a professional — and so only then sees the
+   * Qualifications, Education History and Verification tabs — once they have
+   * SIGNALLED an interest in finding work (Availability set to "Open to work")
+   * and FILLED IN the job-find basics (occupation + bio). New accounts and
+   * regular users start with none of that, so they get only the Public Profile
+   * ("profile update") tab. The occupation list no longer drives this: a free
+   * text occupation is now the norm, and intent + completed fields is the gate.
    */
-  const isProfessional = isProfessionalOccupation(profile?.headline);
+  const isProfessional =
+    profile?.availability === "open_to_work" &&
+    !!profile?.headline?.trim() &&
+    !!profile?.bio?.trim();
 
-  // No Verification section for non-professionals — don't let a deep link land there.
-  const [tab, setTab] = useState<Key>(!isProfessional && initial === "verification" ? "public" : initial);
+  // Non-professionals land on (and can only navigate to) the Public Profile tab
+  // — no deep link should strand them on a hidden tab.
+  const [tab, setTab] = useState<Key>(!isProfessional ? "public" : initial);
   const active = TABS.find((t) => t.key === tab)!;
   const pct = profile?.completeness ?? 0;
   const displayName = profile?.name || "Your profile";
 
-  // The rail hides Verification alongside the cards.
-  const visibleTabs = isProfessional ? TABS : TABS.filter((t) => t.key !== "verification");
+  // The rail shows the professional tabs only to professionals.
+  const visibleTabs = isProfessional ? TABS : TABS.filter((t) => t.key === "public");
 
   // The first thing still outstanding, so "Complete profile" goes somewhere
   // useful instead of always landing on the Public Profile tab even when what is

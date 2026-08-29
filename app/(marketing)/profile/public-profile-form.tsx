@@ -7,68 +7,51 @@ import { Field, inputClass, GhostButton, PrimaryButton } from "@/components/ui/m
 import { SelectMenu } from "@/components/ui/select-menu";
 import { saveProfile, type ProfileData } from "@/lib/services/profile";
 import { uploadFile } from "@/lib/upload-client";
-import { NG_STATES, lgasFor } from "@/lib/data/nigeria-lga";
-import { OCCUPATIONS, KNOWN_OCCUPATIONS } from "@/lib/data/occupations";
+import { lgasFor } from "@/lib/data/nigeria-lga";
+import { COUNTRIES, statesFor } from "@/lib/data/countries";
 
 /** Stand-in until the member uploads a picture. Exported so the profile header
  *  falls back to the same mark rather than a stock photo of someone else. */
 export const DEFAULT_AVATAR = "/logos/mark-on-light.png";
 
-/** The two states the redesign offers. `hiring` is still a valid stored value —
- *  employers set it from the settings hub — so an existing value that isn't one
- *  of these is preserved rather than silently rewritten on save. */
-const AVAIL_OPTIONS = ["Open to work (show profile badge)", "None"];
-const AVAIL_TO_DB: Record<string, string> = { "Open to work (show profile badge)": "open_to_work", None: "none" };
-const AVAIL_FROM_DB: Record<string, string> = { open_to_work: "Open to work (show profile badge)", none: "None" };
-
-/** Location is stored as one string ("address, LGA, State"). Split it back into
- *  its parts by matching the tail against the states/LGA dataset; anything that
- *  doesn't match (older free-text values) falls back to the address field. */
-function parseLocation(loc: string): { address: string; state: string; lga: string } {
+/** Location is stored as one string ("address, LGA, State, Country"). Split it
+ *  back into its parts by matching the tail against the country/state/LGA
+ *  datasets; anything that doesn't match (older free-text values) falls back to
+ *  the address field. */
+function parseLocation(loc: string): { address: string; state: string; lga: string; country: string } {
   const parts = (loc ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-  if (!parts.length) return { address: "", state: "", lga: "" };
-  const tail = parts[parts.length - 1].replace(/\s+state$/i, "").trim();
-  const state = NG_STATES.find((s) => s.toLowerCase() === tail.toLowerCase());
-  if (!state) return { address: parts.join(", "), state: "", lga: "" };
+  if (!parts.length) return { address: "", state: "", lga: "", country: "" };
+  const countryTail = parts[parts.length - 1].trim();
+  const country = COUNTRIES.find((c) => c.toLowerCase() === countryTail.toLowerCase()) ?? "";
+  if (!country) return { address: parts.join(", "), state: "", lga: "", country: "" };
   let rest = parts.slice(0, -1);
+  const stateTail = rest.length ? (rest[rest.length - 1].replace(/\s+state(\s|$)/i, "$1").trim() ?? rest[rest.length - 1]) : "";
+  const state = statesFor(country).find((s) => s.toLowerCase() === stateTail.toLowerCase()) ?? "";
+  if (state) rest = rest.slice(0, -1);
   let lga = "";
-  if (rest.length) {
-    const match = lgasFor(state).find((l) => l.toLowerCase() === rest[rest.length - 1].toLowerCase());
-    if (match) { lga = match; rest = rest.slice(0, -1); }
+  if (state && country.toLowerCase() === "nigeria") {
+    const lgaMatch = rest.length ? lgasFor(state).find((l) => l.toLowerCase() === rest[rest.length - 1].toLowerCase()) : undefined;
+    if (lgaMatch) { lga = lgaMatch; rest = rest.slice(0, -1); }
   }
-  return { address: rest.join(", "), state, lga };
+  return { address: rest.join(", "), state, lga, country };
 }
 
 export function PublicProfileForm({ initial }: { initial?: ProfileData }) {
   const router = useRouter();
-  const [name, setName] = useState(initial?.name ?? "");
+  const [initialName] = useState((initial?.name ?? "").trim().split(/\s+/).filter(Boolean));
+  const [firstName, setFirstName] = useState(initialName[0] ?? "");
+  const [lastName, setLastName] = useState(initialName.slice(1).join(" "));
+  const [phone, setPhone] = useState(initial?.phone ?? "");
   const [headline, setHeadline] = useState(initial?.headline ?? "");
-  // Occupation is stored as the headline. The select tracks which fixed option
-  // (or "Others") is picked; a saved value that isn't one of the fixed options
-  // means a custom occupation — rehydrate the select to "Others" with their
-  // text back in the input.
-  const [occupationPick, setOccupationPick] = useState(
-    initial?.headline ? (KNOWN_OCCUPATIONS.includes(initial.headline) ? initial.headline : "Others") : "",
-  );
-  const [customOccupation, setCustomOccupation] = useState(
-    initial?.headline && !KNOWN_OCCUPATIONS.includes(initial.headline) ? initial.headline : "",
-  );
-  function pickOccupation(v: string) {
-    setOccupationPick(v);
-    // Leaving "Others" discards the custom text; entering it keeps whatever
-    // was typed so an accidental switch doesn't lose input.
-    if (v === "Others") setHeadline(customOccupation);
-    else { setCustomOccupation(""); setHeadline(v); }
-  }
   const parsed = parseLocation(initial?.location ?? "");
   const [address, setAddress] = useState(parsed.address);
+  const [country, setCountry] = useState(parsed.country);
   const [stateName, setStateName] = useState(parsed.state);
   const [lga, setLga] = useState(parsed.lga);
-  const [availability, setAvailability] = useState(AVAIL_FROM_DB[initial?.availability ?? ""] ?? "");
-  // Practice status and its dependent fields (license number, company details)
-  // are no longer offered in this form; pass any stored values straight back so
-  // saving never wipes them.
-  const [bio, setBio] = useState(initial?.bio ?? "");
+  // Bio and practice status (license number, company details) are no longer
+  // offered in this basic-profile form — bio lives in the Find-work onboarding
+  // and the practice status fields aren't curated here anymore. Pass stored
+  // values straight back so saving never wipes them.
   const [avatar, setAvatar] = useState(initial?.avatarUrl || DEFAULT_AVATAR);
   const [avatarUrl, setAvatarUrl] = useState(initial?.avatarUrl ?? "");
   const [uploading, setUploading] = useState(false);
@@ -99,21 +82,23 @@ export function PublicProfileForm({ initial }: { initial?: ProfileData }) {
   }
 
   function save() {
-    const location = [address.trim(), lga, stateName].filter(Boolean).join(", ");
-    // "Others" requires the custom occupation to be filled in — an empty
-    // headline would blank the profile.
-    const headlineToSave = occupationPick === "Others" ? customOccupation.trim() : headline;
-    if (occupationPick === "Others" && !headlineToSave) {
+    const location = [address.trim(), lga, stateName, country].filter(Boolean).join(", ");
+    const firstToSave = firstName.trim();
+    const lastToSave = lastName.trim();
+    if (!firstToSave) { toast.error("Please enter your first name."); return; }
+    const name = lastToSave ? `${firstToSave} ${lastToSave}` : firstToSave;
+    const headlineToSave = headline.trim();
+    if (!headlineToSave) {
       toast.error("Please enter your occupation.");
       return;
     }
-    // An availability the redesign no longer offers (e.g. an employer's
-    // "hiring") is left as-is rather than overwritten by an empty selection.
-    const avail = availability ? AVAIL_TO_DB[availability] : (initial?.availability ?? "");
+    // Availability is set in the Find-work onboarding (not this form), so any
+    // stored value — including an employer's "hiring" — is preserved untouched.
+    const avail = initial?.availability ?? "";
     start(async () => {
       try {
         await saveProfile({
-          name, headline: headlineToSave, location, availability: avail, bio, avatarUrl,
+          name, phone: phone.trim(), headline: headlineToSave, location, availability: avail, bio: initial?.bio ?? "", avatarUrl,
           practiceStatus: initial?.practiceStatus ?? "",
           licenseNumber: initial?.licenseNumber ?? "",
           practiceCompanyName: initial?.practiceCompanyName ?? "",
@@ -147,49 +132,52 @@ export function PublicProfileForm({ initial }: { initial?: ProfileData }) {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-        <Field label="Full name">
-          <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} placeholder="Your full name" />
+        <Field label="First name">
+          <input className={inputClass} value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="e.g. John" />
         </Field>
-        <Field label="Availability">
-          <SelectMenu placeholder="Select availability" value={availability} onChange={setAvailability} options={AVAIL_OPTIONS} />
+        <Field label="Last name">
+          <input className={inputClass} value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="e.g. Doe" />
+        </Field>
+        <Field label="Phone number">
+          <input type="tel" className={inputClass} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+234 901 2345 678" />
         </Field>
         <Field label="Occupation">
-          <SelectMenu placeholder="Select occupation" value={occupationPick} onChange={pickOccupation} options={OCCUPATIONS} />
+          <input className={inputClass} value={headline} onChange={(e) => setHeadline(e.target.value)} placeholder="e.g. Architect, Crane Operator" />
         </Field>
-        {occupationPick === "Others" && (
-          <Field label="Specify your occupation">
-            <input
-              className={inputClass}
-              value={customOccupation}
-              onChange={(e) => { setCustomOccupation(e.target.value); setHeadline(e.target.value); }}
-              placeholder="e.g. Crane Operator, Site Clerk"
+        <Field label="Country">
+          <SelectMenu
+            placeholder="Select country"
+            value={country}
+            onChange={(v) => {
+              setCountry(v);
+              setStateName("");
+              setLga("");
+            }}
+            options={COUNTRIES}
+          />
+        </Field>
+        <Field label="State / Region">
+          <SelectMenu
+            placeholder={country ? "Select state" : "Select country first"}
+            value={stateName}
+            onChange={(v) => { setStateName(v); setLga((cur) => (lgasFor(v).includes(cur) ? cur : "")); }}
+            options={country ? statesFor(country) : []}
+          />
+        </Field>
+        {country && country.toLowerCase() === "nigeria" ? (
+          <Field label="Local Government Area" hint={stateName ? undefined : "Select a state first"}>
+            <SelectMenu
+              placeholder={stateName ? "Select LGA" : "Select a state first"}
+              value={lga}
+              onChange={setLga}
+              options={lgasFor(stateName)}
             />
           </Field>
-        )}
+        ) : null}
         <Field label="Address">
           <input className={inputClass} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="e.g. 12 Allen Avenue" />
         </Field>
-        <Field label="State">
-          <SelectMenu
-            placeholder="Select state"
-            value={stateName}
-            onChange={(v) => { setStateName(v); setLga((cur) => (lgasFor(v).includes(cur) ? cur : "")); }}
-            options={NG_STATES}
-          />
-        </Field>
-        <Field label="Local Government Area" hint={stateName ? undefined : "Select a state first"}>
-          <SelectMenu
-            placeholder={stateName ? "Select LGA" : "Select a state first"}
-            value={lga}
-            onChange={setLga}
-            options={lgasFor(stateName)}
-          />
-        </Field>
       </div>
-
-      <Field label="Bio" hint={`${bio.length}/2,000`}>
-        <textarea value={bio} onChange={(e) => setBio(e.target.value.slice(0, 2000))} rows={3} className={inputClass + " resize-none"} placeholder="A short summary about you and your work..." />
-      </Field>
 
       <div className="flex items-center justify-end gap-3 py-4 mt-2 border-t border-[#ececec] dark:border-white/10">
         <GhostButton type="button" onClick={() => router.refresh()}>Cancel</GhostButton>

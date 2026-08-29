@@ -2,6 +2,7 @@ import { JobsBrowse } from "@/components/dashboard/professional/jobs-browse";
 import { ProfessionalOnboarding } from "@/components/dashboard/onboarding/professional-onboarding";
 import { getJobsForBrowse } from "@/lib/services/catalog";
 import { getSavedIds } from "@/lib/services/saved";
+import { getSavedLocation } from "@/lib/services/profile";
 import { getViewer } from "@/lib/viewer-server";
 import { can } from "@/lib/entitlements";
 
@@ -13,17 +14,19 @@ import { can } from "@/lib/entitlements";
  * So a viewer without the professional role gets the onboarding wizard here,
  * not the board. This page previously rendered the board unconditionally, which
  * let an employer-only account browse listings and press Apply on a track they
- * had never joined. Onboarding stays cheap — identity, a short quiz, and
- * verification tiers explained but skippable; the real bar is Tier 1
- * completeness, enforced where it belongs, on /dashboard/jobs/apply.
+ * had never joined. Onboarding stays cheap — a simple LinkedIn-style profile
+ * form; the real bar is Tier 1 completeness, enforced where it belongs, on
+ * /dashboard/jobs/apply.
  */
 export default async function JobsPage() {
   const viewer = await getViewer();
   if (!can(viewer, "jobBoard")) {
+    const savedLocation = await getSavedLocation();
     return (
       <ProfessionalOnboarding
         title="Find work on Nomarc"
         description="Set up your professional profile to browse and apply for roles. It takes a couple of minutes — no documents needed today."
+        savedLocation={savedLocation}
       />
     );
   }

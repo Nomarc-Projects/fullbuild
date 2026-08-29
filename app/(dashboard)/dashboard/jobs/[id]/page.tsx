@@ -6,6 +6,7 @@ import { JobDetail } from "@/components/dashboard/professional/job-detail";
 import { ProfessionalOnboarding } from "@/components/dashboard/onboarding/professional-onboarding";
 import { getViewer } from "@/lib/viewer-server";
 import { can } from "@/lib/entitlements";
+import { getSavedLocation } from "@/lib/services/profile";
 
 /**
  * Real jobs only.
@@ -23,10 +24,12 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
   // page, so a viewer without the role is offered onboarding rather than the job.
   const viewer = await getViewer();
   if (!can(viewer, "jobBoard")) {
+    const savedLocation = await getSavedLocation();
     return (
       <ProfessionalOnboarding
         title="View this role on Nomarc"
         description="Set up your professional profile to see full role details and apply. It takes a couple of minutes — no documents needed today."
+        savedLocation={savedLocation}
       />
     );
   }

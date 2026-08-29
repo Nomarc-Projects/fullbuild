@@ -2,228 +2,378 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, X, Loader2, Check, ShieldCheck, Sparkles } from "lucide-react";
+import { X, Loader2, ArrowRight, Plus, Briefcase, GraduationCap, Award, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Field, inputClass } from "@/components/ui/modal";
+import { SelectMenu } from "@/components/ui/select-menu";
 import { Logo } from "@/components/ui/logo";
-import { saveProfile } from "@/lib/services/profile";
-import { AptitudeQuiz } from "@/components/dashboard/onboarding/aptitude-quiz";
-import { useMultiStep } from "@/components/ui/stepper";
+import { completeProfessionalOnboarding } from "@/lib/services/profile";
 import { cn } from "@/lib/utils";
-import {
-  WizardFooter,
-  SegmentBar,
-  StepHeader,
-  CancelSetupDialog,
-  yellowBtn,
-  ghostBtn,
-} from "./wizard-chrome";
-import { useTour } from "@/components/tour/tour-provider";
+import { WizardFooter, CancelSetupDialog, yellowBtn, ghostBtn } from "./wizard-chrome";
+import { lgasFor } from "@/lib/data/nigeria-lga";
+import { COUNTRIES, statesFor } from "@/lib/data/countries";
 
-/** Tier 1 checklist — mirrors professionalChecklist() in lib/services/profile-checklist.ts. */
-const TIER1_ITEMS = [
-  { label: "Add a profile photo", href: "/dashboard/profile" },
-  { label: "Add your occupation & bio", href: "/dashboard/profile" },
-  { label: "Add your location", href: "/dashboard/profile" },
-  { label: "Add work experience", href: "/dashboard/profile?tab=qualifications" },
-  { label: "Add at least 3 skills", href: "/dashboard/profile?tab=qualifications" },
-  { label: "Add your education", href: "/dashboard/profile?tab=education" },
+const AVAIL_OPTIONS = [
+  { label: "Open to work", value: "open_to_work" },
+  { label: "Not right now", value: "none" },
 ];
 
-/**
- * 4-step professional onboarding: identity → aptitude quiz (grants the role) →
- * a quick, OPTIONAL look at what unlocks applying later → done.
- *
- * Deliberately low-friction, matching the exhibitor/employer wizards: nothing
- * here demands documents someone may not have on hand. Verification tiers are
- * explained but skippable — Tier 1/2 items live on the dashboard checklist
- * where the user can chip away whenever they're ready.
- */
-export function ProfessionalOnboarding({ title, description }: { title: string; description: string }) {
+const PROFESSIONS = [
+  "Architect",
+  "Architectural Technologist / Technician",
+  "Landscape Architect",
+  "Urban / Town Planner",
+  "Interior Designer",
+  "Civil Engineer",
+  "Structural Engineer",
+  "Building Services Engineer (MEP)",
+  "Geotechnical Engineer",
+  "Environmental / Sustainability Engineer",
+  "Fire Safety Engineer",
+  "Acoustic Engineer",
+  "Coastal / Hydraulic Engineer",
+  "Quantity Surveyor",
+  "Land / Geomatics Surveyor",
+  "Building Surveyor",
+  "Valuation / Estate Surveyor",
+  "Hydrographic Surveyor",
+  "Professional Builder / Construction Manager",
+  "Construction Project Manager",
+  "Building Control Officer / Inspector",
+  "Health & Safety Manager (HSE)",
+  "BIM (Building Information Modeling) Manager / Coordinator",
+  "Facility Manager",
+  "Real Estate Developer",
+];
+
+const PRACTICE_STATUS_OPTIONS = [
+  { label: "Registered", value: "registered" },
+  { label: "In progress", value: "in_progress" },
+  { label: "Not licensed yet", value: "not_licensed" },
+];
+
+// SelectMenu deals in plain labels; map them back to the DB values on submit.
+const AVAIL_TO_DB = Object.fromEntries(AVAIL_OPTIONS.map((o) => [o.label, o.value]));
+const PRACTICE_STATUS_TO_DB = Object.fromEntries(PRACTICE_STATUS_OPTIONS.map((o) => [o.label, o.value]));
+
+const SECTION_CARD = "rounded-2xl border border-[#ececec] bg-white p-5 sm:p-6 dark:border-white/10 dark:bg-[#1e1e1e]";
+const SECTION_TITLE = "text-[12px] font-bold uppercase tracking-[0.08em] text-[#9a9a9a]";
+const ROW = "rounded-xl border border-[#ececec] bg-[#fafafa] px-4 py-3 text-[13px] text-[#1e1e1e] dark:border-white/10 dark:bg-white/[0.02] dark:text-white";
+
+const YEAR_OPTIONS = Array.from({ length: 70 }, (_, i) => String(new Date().getFullYear() - i));
+
+export function ProfessionalOnboarding({ title, description, savedLocation = "" }: { title: string; description: string; savedLocation?: string }) {
   const router = useRouter();
-  const { startWelcome, hasWelcome } = useTour();
-
-  const { step, next, prev, goTo } = useMultiStep(4);
-
-  const [headline, setHeadline] = useState("");
-  const [bio, setBio] = useState("");
-  const [location, setLocation] = useState("");
-  const [pending, setPending] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
 
-  function saveIdentity() {
-    if (!headline.trim()) { toast.error("Enter your job title."); return; }
-    setPending(true);
-    startIdentity();
-  }
+  // Intro
+  const [availability, setAvailability] = useState("");
 
-  async function startIdentity() {
-    try {
-      await saveProfile({ headline, bio, location });
-      next();
-    } catch {
-      toast.error("Something went wrong. Please try again.");
-    } finally {
-      setPending(false);
-    }
-  }
+  // Profession (job title)
+  const [headline, setHeadline] = useState("");
 
-  function onQuizPass() {
-    toast.success("You're set up — welcome to the professional track!");
-    next();
-  }
+  // Qualification — skills + certifications
+  const [skill, setSkill] = useState("");
+  const [skills, setSkills] = useState<string[]>([]);
+  const [practiceLicenceStatus, setPracticeLicenceStatus] = useState("");
+  const [certs, setCerts] = useState<{ name: string; issuer: string; year: string }[]>([]);
+  const [cert, setCert] = useState({ name: "", issuer: "", year: "" });
 
-  function goDashboard() {
-    router.push("/dashboard");
-    router.refresh();
-  }
+  // Work experience
+  const [experience, setExperience] = useState<{ title: string; company: string; startDate: string; endDate: string; current: boolean }[]>([]);
+  const [exp, setExp] = useState({ title: "", company: "", startDate: "", endDate: "", current: false });
 
-  function takeTour() {
-    if (hasWelcome()) startWelcome();
-    goDashboard();
-  }
+  // Education
+  const [education, setEducation] = useState<{ school: string; degree: string; field: string; startYear: string; endYear: string; current: boolean }[]>([]);
+  const [edu, setEdu] = useState({ school: "", degree: "", field: "", startYear: "", endYear: "", current: false });
+
+  const [address, setAddress] = useState("");
+  const [country, setCountry] = useState("");
+  const [stateName, setStateName] = useState("");
+  const [lga, setLga] = useState("");
+  const [bio, setBio] = useState("");
+  const [pending, setPending] = useState(false);
+
+  // Location is already collected on the basic profile ("Country / State / LGA /
+  // Address" on the profile update form) — reuse it here instead of asking for
+  // it again. Only show the Location section when nothing has been saved yet.
+  const hasLocation = savedLocation.trim().length > 0;
+  const location = hasLocation ? savedLocation.trim() : [address.trim(), lga, stateName, country].filter(Boolean).join(", ");
 
   function requestClose() {
-    if (step === 3) { goDashboard(); return; }
     setCancelOpen(true);
+  }
+
+  function addSkill() {
+    const s = skill.trim();
+    if (!s) return;
+    if (skills.includes(s)) { setSkill(""); return; }
+    setSkills((p) => [...p, s]);
+    setSkill("");
+  }
+
+  function addCert() {
+    if (!cert.name.trim()) { toast.error("Enter the certification name."); return; }
+    setCerts((p) => [...p, { name: cert.name.trim(), issuer: cert.issuer.trim(), year: cert.year }]);
+    setCert({ name: "", issuer: "", year: "" });
+  }
+
+  function addExp() {
+    if (!exp.title.trim() || !exp.company.trim()) { toast.error("Role and company are required."); return; }
+    setExperience((p) => [...p, { ...exp, title: exp.title.trim(), company: exp.company.trim() }]);
+    setExp({ title: "", company: "", startDate: "", endDate: "", current: false });
+  }
+
+  function addEdu() {
+    if (!edu.school.trim()) { toast.error("School is required."); return; }
+    setEducation((p) => [...p, { ...edu, school: edu.school.trim(), degree: edu.degree.trim(), field: edu.field.trim() }]);
+    setEdu({ school: "", degree: "", field: "", startYear: "", endYear: "", current: false });
+  }
+
+  async function submit() {
+    if (!headline.trim()) { toast.error("Enter your job title."); return; }
+    if (!availability) { toast.error("Let us know if you're open to work."); return; }
+    setPending(true);
+    try {
+      await completeProfessionalOnboarding({
+        headline: headline.trim(),
+        bio,
+        location,
+        availability: AVAIL_TO_DB[availability] ?? availability,
+        practiceLicenceStatus: PRACTICE_STATUS_TO_DB[practiceLicenceStatus] ?? practiceLicenceStatus,
+        skills,
+        certifications: certs.map((c) => ({ name: c.name, issuer: c.issuer, year: c.year ? Number(c.year) : undefined })),
+        experience: experience.map((x) => ({ title: x.title, company: x.company, startDate: x.startDate, endDate: x.current ? undefined : x.endDate, current: x.current })),
+        education: education.map((e) => ({ school: e.school, degree: e.degree || undefined, field: e.field || undefined, startYear: e.startYear ? Number(e.startYear) : undefined, endYear: e.current ? undefined : e.endYear ? Number(e.endYear) : undefined, current: e.current })),
+      });
+      toast.success("You're all set — welcome to the professional track!");
+      router.push("/dashboard/jobs");
+      router.refresh();
+    } catch {
+      toast.error("Something went wrong. Please try again.");
+      setPending(false);
+    }
   }
 
   return (
     <div className="min-h-full bg-[#f4f4f4] px-3 py-4 dark:bg-[#161616] sm:px-6 sm:py-8">
       <div className="mx-auto max-w-[900px] overflow-hidden rounded-2xl border border-[#ececec] bg-white shadow-sm dark:border-white/10 dark:bg-[#1e1e1e]">
         <div className="px-6 pt-6 sm:px-10 sm:pt-9">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={step}
-              initial={{ opacity: 0, x: 16 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -16 }}
-              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-            >
-              {/* ── Step 0 — Identity ──────────────────────────────── */}
-              {step === 0 && (
-                <div>
-                  <div className="flex items-center justify-between border-b border-[#f0f0f0] pb-5 dark:border-white/10">
-                    <Logo size="sm" tone="auto" />
-                    <button onClick={requestClose} aria-label="Close" className="text-[#9a9a9a] transition-colors hover:text-[#1e1e1e] dark:hover:text-white"><X size={20} /></button>
-                  </div>
-                  <div className="border-b border-[#f0f0f0] py-7 text-center dark:border-white/10">
-                    <h1 className="text-[26px] font-bold leading-tight tracking-tight text-[#1e1e1e] dark:text-white">Nomarc Projects<br />Professional Onboarding</h1>
-                    <p className="mx-auto mt-3 max-w-md text-[13px] leading-relaxed text-[#6b6b6b] dark:text-white/55">{description}</p>
-                  </div>
-                  <div className="py-6">
-                    <div className="space-y-4">
-                      <Field label="Job title / headline">
-                        <input className={inputClass} maxLength={80} value={headline} onChange={(e) => setHeadline(e.target.value)} placeholder="e.g. Structural Engineer" />
-                      </Field>
-                      <Field label="Location" hint="Optional">
-                        <input className={inputClass} maxLength={60} value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Lagos, Nigeria" />
-                      </Field>
-                      <Field label="Short bio" hint="Optional">
-                        <textarea rows={4} maxLength={280} className={inputClass} value={bio} onChange={(e) => setBio(e.target.value)} placeholder="A couple of lines about your experience…" />
-                      </Field>
-                      <button onClick={saveIdentity} disabled={pending} className={cn(yellowBtn, "w-full py-3")}>
-                        {pending ? <Loader2 size={15} className="animate-spin" /> : <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" />} Continue to the quiz
-                      </button>
-                    </div>
+          <div className="flex items-center justify-between border-b border-[#f0f0f0] pb-5 dark:border-white/10">
+            <Logo size="sm" tone="auto" />
+            <button onClick={requestClose} aria-label="Close" className="text-[#9a9a9a] transition-colors hover:text-[#1e1e1e] dark:hover:text-white"><X size={20} /></button>
+          </div>
+
+          <div className="border-b border-[#f0f0f0] py-7 dark:border-white/10">
+            <h1 className="text-[26px] font-bold leading-tight tracking-tight text-[#1e1e1e] dark:text-white">{title}</h1>
+            <p className="mx-auto mt-3 max-w-md text-[13px] leading-relaxed text-[#6b6b6b] dark:text-white/55">{description}</p>
+          </div>
+
+          <form onSubmit={(e) => { e.preventDefault(); submit(); }} className="space-y-5 py-6">
+            {/* ── Intro ───────────────────────────────────────────── */}
+            <section className={SECTION_CARD}>
+              <h2 className={SECTION_TITLE}>Intro</h2>
+              <div className="mt-4 space-y-4">
+                <Field label="Are you open to work?" hint="Employers and clients can then find out you're available — you can change this later on your profile.">
+                  <SelectMenu placeholder="Select an option" value={availability} onChange={setAvailability} options={AVAIL_OPTIONS.map((o) => o.label)} />
+                </Field>
+              </div>
+            </section>
+
+            {/* ── Professional Profile ────────────────────────────── */}
+            <section className={SECTION_CARD}>
+              <h2 className={SECTION_TITLE}>Professional Profile</h2>
+
+              {/* Profession */}
+              <div className="mt-4 border-b border-[#f0f0f0] pb-5 dark:border-white/10">
+                <h3 className="flex items-center gap-2 text-[14px] font-semibold text-[#1e1e1e] dark:text-white"><Briefcase size={15} className="text-[#9a9a9a]" /> Profession</h3>
+                <div className="mt-3">
+                  <Field label="Job title / headline">
+                    <SelectMenu
+                      placeholder="Select your profession"
+                      value={headline}
+                      onChange={setHeadline}
+                      options={PROFESSIONS}
+                    />
+                  </Field>
+                </div>
+              </div>
+
+              {/* Qualification */}
+              <div className="mt-5 border-b border-[#f0f0f0] pb-5 dark:border-white/10">
+                <h3 className="flex items-center gap-2 text-[14px] font-semibold text-[#1e1e1e] dark:text-white"><Award size={15} className="text-[#9a9a9a]" /> Qualification</h3>
+
+                <div className="mt-3 max-w-sm">
+                  <Field label="Professional practice status" hint="Your licensing status with your regulatory body.">
+                    <SelectMenu placeholder="Select status" value={practiceLicenceStatus} onChange={setPracticeLicenceStatus} options={PRACTICE_STATUS_OPTIONS.map((o) => o.label)} />
+                  </Field>
+                </div>
+
+                <p className="mt-4 text-[12.5px] font-medium text-[#1e1e1e] dark:text-white">Skills</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {skills.map((s) => (
+                    <span key={s} className="inline-flex items-center gap-1.5 rounded-full border border-[#f3d34d] bg-[#fffae6] px-3 py-1 text-[12.5px] text-[#1e1e1e] dark:border-[#ffd716]/40 dark:bg-[#ffd716]/10 dark:text-white/90">
+                      {s}
+                      <button type="button" onClick={() => setSkills((p) => p.filter((x) => x !== s))} aria-label={`Remove ${s}`} className="text-[#9a9a9a] hover:text-[#e5484d]"><X size={12} /></button>
+                    </span>
+                  ))}
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      className={cn(inputClass, "w-44")}
+                      placeholder="Add a skill + Enter"
+                      value={skill}
+                      onChange={(e) => setSkill(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSkill(); } }}
+                    />
+                    <button type="button" onClick={addSkill} className="rounded-lg border border-[#e3e3e3] px-2.5 py-2 text-[#6b6b6b] transition-colors hover:border-[#ffd716] hover:text-[#1e1e1e] dark:border-white/15 dark:text-white/70 dark:hover:text-white"><Plus size={14} /></button>
                   </div>
                 </div>
-              )}
 
-              {/* ── Step 1 — Aptitude quiz (grants the role) ──────── */}
-              {step === 1 && (
-                <div className="pb-2">
-                  <SegmentBar current={1} total={3} />
-                  <StepHeader title="Professional Onboarding" subtitle="A short aptitude quiz to set up your professional profile." onClose={requestClose} />
-                  <AptitudeQuiz onPass={onQuizPass} onClose={() => goTo(0)} />
+                <p className="mt-4 text-[12.5px] font-medium text-[#1e1e1e] dark:text-white">Certifications / Licenses</p>
+                {certs.length > 0 && (
+                  <ul className="mt-2 space-y-2">
+                    {certs.map((c, i) => (
+                      <li key={i} className={cn(ROW, "flex items-center justify-between gap-2")}>
+                        <span className="truncate"><span className="font-semibold">{c.name}</span>{c.issuer ? ` · ${c.issuer}` : ""}</span>
+                        <button type="button" onClick={() => setCerts((p) => p.filter((_, j) => j !== i))} aria-label="Remove certification" className="flex-shrink-0 text-[#9a9a9a] hover:text-[#e5484d]"><X size={13} /></button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                  <input className={inputClass} placeholder="e.g. COREN Registered Engineer" value={cert.name} onChange={(e) => setCert((p) => ({ ...p, name: e.target.value }))} />
+                  <input className={inputClass} placeholder="Issuer (optional)" value={cert.issuer} onChange={(e) => setCert((p) => ({ ...p, issuer: e.target.value }))} />
+                  <SelectMenu placeholder="Year" value={cert.year} onChange={(v) => setCert((p) => ({ ...p, year: v }))} options={YEAR_OPTIONS} />
                 </div>
-              )}
+                <button type="button" onClick={addCert} className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#caa400] hover:underline"><Plus size={14} /> Add</button>
+              </div>
 
-              {/* ── Step 2 — Verification tiers (OPTIONAL) ─────────── */}
-              {step === 2 && (
-                <div className="pb-2">
-                  <SegmentBar current={2} total={3} />
-                  <StepHeader
-                    title="You're a Professional"
-                    subtitle="You're in — nothing here is required today. This is just so you know what unlocks more as you go."
-                    onClose={requestClose}
-                  />
-
-                  <div className="space-y-4">
-                    <div className="rounded-2xl border border-[#ececec] bg-[#fafafa] p-5 dark:border-white/10 dark:bg-white/[0.02]">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#e7f6ec] text-[#1a7f43] dark:bg-[#1a7f43]/15 dark:text-[#4ade80]"><ShieldCheck size={18} /></div>
-                        <div>
-                          <h3 className="text-[15px] font-bold text-[#1e1e1e] dark:text-white">Tier 1 — Complete your profile</h3>
-                          <p className="text-[12.5px] text-[#6b6b6b] dark:text-white/55">Finishing these clears Tier 1, which most applications expect. They're on your dashboard checklist too — do them whenever.</p>
-                        </div>
-                      </div>
-                      <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-                        {TIER1_ITEMS.map((item) => (
-                          <li key={item.label}>
-                            <Link href={item.href} className="flex items-center gap-2 rounded-lg border border-[#e6e6e6] bg-white px-3 py-2 text-[13px] text-[#1e1e1e] transition-colors hover:border-[#ffd716] dark:border-white/10 dark:bg-transparent dark:text-white">
-                              <Check size={14} className="flex-shrink-0 text-[#9a9a9a]" />
-                              {item.label}
-                              <ArrowRight size={12} className="ml-auto flex-shrink-0 text-[#b3b3b3]" />
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div className="rounded-2xl border border-[#ececec] bg-[#fafafa] p-5 dark:border-white/10 dark:bg-white/[0.02]">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#fff7cc] text-[#8a6d00] dark:bg-[#ffd716]/15 dark:text-[#ffd716]"><ShieldCheck size={18} /></div>
-                        <div>
-                          <h3 className="text-[15px] font-bold text-[#1e1e1e] dark:text-white">Tier 2 — Get the verified seal</h3>
-                          <p className="text-[12.5px] text-[#6b6b6b] dark:text-white/55">Optional, and entirely up to you: upload identity documents anytime to earn the verified seal. No rush.</p>
-                        </div>
-                      </div>
-                      <Link href="/dashboard/kyc" className="mt-4 inline-flex items-center gap-2 text-[13px] font-semibold text-[#caa400] hover:underline">
-                        See verification requirements <ArrowRight size={13} />
-                      </Link>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 flex items-center gap-2.5">
-                    <button onClick={prev} className={cn(ghostBtn, "flex-1")}>Back</button>
-                    <button onClick={takeTour} className={cn(yellowBtn, "flex-1")}>
-                      <Sparkles size={15} /> Take the welcome tour
-                    </button>
-                  </div>
+              {/* Work experience */}
+              <div className="mt-5 border-b border-[#f0f0f0] pb-5 dark:border-white/10">
+                <h3 className="flex items-center gap-2 text-[14px] font-semibold text-[#1e1e1e] dark:text-white"><Briefcase size={15} className="text-[#9a9a9a]" /> Work experience</h3>
+                {experience.length > 0 && (
+                  <ul className="mt-3 space-y-2">
+                    {experience.map((x, i) => (
+                      <li key={i} className={cn(ROW, "flex items-center justify-between gap-2")}>
+                        <span className="truncate">
+                          <span className="font-semibold">{x.title}</span> · {x.company}
+                          <span className="text-[#9a9a9a]">{x.startDate || x.endDate ? ` — ${[x.startDate, x.current ? "Present" : x.endDate].filter(Boolean).join(" – ")}` : ""}</span>
+                        </span>
+                        <button type="button" onClick={() => setExperience((p) => p.filter((_, j) => j !== i))} aria-label="Remove role" className="flex-shrink-0 text-[#9a9a9a] hover:text-[#e5484d]"><X size={13} /></button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <input className={inputClass} placeholder="Role / title *" value={exp.title} onChange={(e) => setExp((p) => ({ ...p, title: e.target.value }))} />
+                  <input className={inputClass} placeholder="Company *" value={exp.company} onChange={(e) => setExp((p) => ({ ...p, company: e.target.value }))} />
+                  <SelectMenu placeholder="Start" value={exp.startDate} onChange={(v) => setExp((p) => ({ ...p, startDate: v }))} options={YEAR_OPTIONS} />
+                  {!exp.current ? (
+                    <SelectMenu placeholder="End" value={exp.endDate} onChange={(v) => setExp((p) => ({ ...p, endDate: v }))} options={YEAR_OPTIONS} />
+                  ) : (
+                    <div className="flex items-center justify-center rounded-lg border border-[#e7efea] bg-[#f2faf4] px-3 text-[12.5px] font-medium text-[#1a7f43] dark:border-[#1a7f43]/20 dark:bg-[#1a7f43]/10 dark:text-[#4ade80]">Present</div>
+                  )}
                 </div>
-              )}
+                <label className="mt-2 flex items-center gap-2 text-[13px] text-[#6b6b6b] dark:text-white/60">
+                  <input type="checkbox" checked={exp.current} onChange={(e) => setExp((p) => ({ ...p, current: e.target.checked, endDate: "" }))} className="h-4 w-4 accent-[#ffd716]" />
+                  I currently work here
+                </label>
+                <button type="button" onClick={addExp} className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#caa400] hover:underline"><Plus size={14} /> Add</button>
+              </div>
 
-              {/* ── Step 3 — Done ───────────────────────────────────── */}
-              {step === 3 && (
-                <div className="pb-2">
-                  <SegmentBar current={3} total={3} />
-                  <StepHeader title="Professional Onboarding" subtitle="You're all set!" onClose={requestClose} />
-
-                  <div className="rounded-2xl border border-[#ececec] bg-[#fafafa] p-5 dark:border-white/10 dark:bg-white/[0.02]">
-                    <h3 className="text-[15px] font-bold text-[#1e1e1e] dark:text-white">Thank you for joining the professional track!</h3>
-                    <p className="mt-1.5 text-[13px] leading-relaxed text-[#6b6b6b] dark:text-white/60">Your professional profile is set up. Head to your dashboard to browse jobs, complete your profile checklist, and use the professional tools now open to you.</p>
-                    <p className="mt-4 text-[13px] font-semibold text-[#1e1e1e] dark:text-white">What&apos;s Next:</p>
-                    <ul className="mt-2 space-y-2.5 text-[13px] leading-relaxed text-[#6b6b6b] dark:text-white/60">
-                      <li className="flex gap-2"><span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-[#9a9a9a]" /><span><span className="font-semibold text-[#1e1e1e] dark:text-white">Apply for jobs:</span> Browse the job board and apply — completing your Tier 1 profile basics clears the way.</span></li>
-                      <li className="flex gap-2"><span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-[#9a9a9a]" /><span><span className="font-semibold text-[#1e1e1e] dark:text-white">Meet Helm:</span> Your AI construction consultant — contract review, BOQs and code lookups, grounded in real sources.</span></li>
-                    </ul>
-                  </div>
-
-                  <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">
-                    <button onClick={() => { router.push("/dashboard/jobs"); router.refresh(); }} className={cn(ghostBtn, "w-full sm:flex-1")}>
-                      Browse Jobs
-                    </button>
-                    <button onClick={goDashboard} className={cn(yellowBtn, "w-full sm:flex-1")}>
-                      <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" /> Go to My Dashboard
-                    </button>
+              {/* Education */}
+              <div className="mt-5">
+                <h3 className="flex items-center gap-2 text-[14px] font-semibold text-[#1e1e1e] dark:text-white"><GraduationCap size={15} className="text-[#9a9a9a]" /> Education</h3>
+                {education.length > 0 && (
+                  <ul className="mt-3 space-y-2">
+                    {education.map((v, i) => (
+                      <li key={i} className={cn(ROW, "flex items-center justify-between gap-2")}>
+                        <span className="truncate">
+                          <span className="font-semibold">{v.school}</span>
+                          {v.degree ? ` · ${v.degree}` : ""}
+                          {v.startYear || v.endYear ? ` — ${[v.startYear, v.current ? "Present" : v.endYear].filter(Boolean).join(" – ")}` : ""}
+                        </span>
+                        <button type="button" onClick={() => setEducation((p) => p.filter((_, j) => j !== i))} aria-label="Remove education" className="flex-shrink-0 text-[#9a9a9a] hover:text-[#e5484d]"><X size={13} /></button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <input className={inputClass} placeholder="School *" value={edu.school} onChange={(e) => setEdu((p) => ({ ...p, school: e.target.value }))} />
+                  <input className={inputClass} placeholder="Degree / qualification" value={edu.degree} onChange={(e) => setEdu((p) => ({ ...p, degree: e.target.value }))} />
+                  <input className={inputClass} placeholder="Field of study" value={edu.field} onChange={(e) => setEdu((p) => ({ ...p, field: e.target.value }))} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <SelectMenu placeholder="Start year" value={edu.startYear} onChange={(v) => setEdu((p) => ({ ...p, startYear: v }))} options={YEAR_OPTIONS} />
+                    {!edu.current ? (
+                      <SelectMenu placeholder="End year" value={edu.endYear} onChange={(v) => setEdu((p) => ({ ...p, endYear: v }))} options={YEAR_OPTIONS} />
+                    ) : (
+                      <div className="flex items-center justify-center rounded-lg border border-[#e7efea] bg-[#f2faf4] px-3 text-[12.5px] font-medium text-[#1a7f43] dark:border-[#1a7f43]/20 dark:bg-[#1a7f43]/10 dark:text-[#4ade80]"><Check size={13} className="mr-1" /> Present</div>
+                    )}
                   </div>
                 </div>
-              )}
-            </motion.div>
-          </AnimatePresence>
+                <label className="mt-2 flex items-center gap-2 text-[13px] text-[#6b6b6b] dark:text-white/60">
+                  <input type="checkbox" checked={edu.current} onChange={(e) => setEdu((p) => ({ ...p, current: e.target.checked, endYear: "" }))} className="h-4 w-4 accent-[#ffd716]" />
+                  I currently study here
+                </label>
+                <button type="button" onClick={addEdu} className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#caa400] hover:underline"><Plus size={14} /> Add</button>
+              </div>
+            </section>
+
+            {/* ── About ───────────────────────────────────────────── */}
+            <section className={SECTION_CARD}>
+              <h2 className={SECTION_TITLE}>About</h2>
+              <div className="mt-4">
+                <Field label="Short bio" hint="Optional">
+                  <textarea rows={4} maxLength={280} className={inputClass} value={bio} onChange={(e) => setBio(e.target.value)} placeholder="A couple of lines about your experience…" />
+                </Field>
+              </div>
+            </section>
+
+            {/* ── Location (only when nothing saved on the basic profile) ── */}
+            {!hasLocation && (
+              <section className={SECTION_CARD}>
+                <h2 className={SECTION_TITLE}>Location</h2>
+                <div className="mt-4 grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
+                  <Field label="Country">
+                    <SelectMenu
+                      placeholder="Select country"
+                      value={country}
+                      onChange={(v) => { setCountry(v); setStateName(""); setLga(""); }}
+                      options={COUNTRIES}
+                    />
+                  </Field>
+                  <Field label="State / Region">
+                    <SelectMenu
+                      placeholder={country ? "Select state" : "Select country first"}
+                      value={stateName}
+                      onChange={(v) => { setStateName(v); setLga((cur) => (lgasFor(v).includes(cur) ? cur : "")); }}
+                      options={country ? statesFor(country) : []}
+                    />
+                  </Field>
+                  {country && country.toLowerCase() === "nigeria" ? (
+                    <Field label="Local Government Area" hint={stateName ? undefined : "Select a state first"}>
+                      <SelectMenu
+                        placeholder={stateName ? "Select LGA" : "Select a state first"}
+                        value={lga}
+                        onChange={setLga}
+                        options={lgasFor(stateName)}
+                      />
+                    </Field>
+                  ) : null}
+                  <Field label="Address">
+                    <input className={inputClass} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="e.g. 12 Allen Avenue" />
+                  </Field>
+                </div>
+              </section>
+            )}
+
+            <div className="flex items-center gap-2.5 pt-2">
+              <button type="button" onClick={requestClose} className={cn(ghostBtn, "flex-1 sm:flex-none")}>Cancel</button>
+              <button type="submit" disabled={pending} className={cn(yellowBtn, "flex-1 sm:flex-none sm:px-7")}>
+                {pending ? <Loader2 size={15} className="animate-spin" /> : <><ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" /> Save &amp; browse jobs</>}
+              </button>
+            </div>
+          </form>
         </div>
 
         <WizardFooter />
@@ -232,7 +382,7 @@ export function ProfessionalOnboarding({ title, description }: { title: string; 
       <CancelSetupDialog
         open={cancelOpen}
         onCancel={() => setCancelOpen(false)}
-        onConfirm={() => { setCancelOpen(false); goDashboard(); }}
+        onConfirm={() => { setCancelOpen(false); router.push("/dashboard"); }}
       />
     </div>
   );

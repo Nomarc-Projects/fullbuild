@@ -128,7 +128,13 @@ function FilterPanel({ sel, onToggle, activeCount, onClear, locationQuery, onLoc
 
 /* ─── Profile sidebar ───────────────────────────────────────────── */
 
-type ProfileInfo = { name: string; headline: string; location: string };
+type ProfileInfo = { name: string; headline: string; location: string; practiceLicenceStatus: string };
+
+const PRACTICE_BADGE: Record<string, { label: string; cls: string; dot: string }> = {
+  registered: { label: "Registered practitioner", cls: "border-[#bbf7d0] bg-[#f0fdf4] dark:border-[#22c55e]/20 dark:bg-[#22c55e]/10", dot: "bg-[#22c55e]" },
+  in_progress: { label: "Licensing in progress", cls: "border-[#fde68a] bg-[#fffbeb] dark:border-[#f59e0b]/25 dark:bg-[#f59e0b]/10", dot: "bg-[#f59e0b]" },
+  not_licensed: { label: "Not licensed yet", cls: "border-[#e5e7eb] bg-[#f9fafb] dark:border-white/12 dark:bg-white/[0.04]", dot: "bg-[#9ca3af]" },
+};
 
 function ProfileSidebar() {
   const { data: session } = useSession();
@@ -137,7 +143,7 @@ function ProfileSidebar() {
   const [skills, setSkills] = useState<string[]>([]);
 
   useEffect(() => {
-    getAccountInfo().then((d) => setProfile({ name: d.name, headline: d.headline, location: d.location })).catch(() => {});
+    getAccountInfo().then((d) => setProfile({ name: d.name, headline: d.headline, location: d.location, practiceLicenceStatus: d.practiceLicenceStatus })).catch(() => {});
     // Real experience and skills for the signed-in professional. These panels
     // used to render a fixed list ("Reyfield Associates", "AutoCAD", "Revit"…),
     // so every account appeared to share one person's CV.
@@ -162,6 +168,7 @@ function ProfileSidebar() {
   const name = profile?.name || session?.user?.name || "Your Profile";
   const headline = profile?.headline || "Construction Professional";
   const location = profile?.location || "Lagos, Nigeria";
+  const practice = profile?.practiceLicenceStatus ? PRACTICE_BADGE[profile.practiceLicenceStatus] : null;
   const initials = name.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase();
   const avatar = session?.user?.image;
 
@@ -186,6 +193,12 @@ function ProfileSidebar() {
           <div className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse" />
           <span className="text-[11px] font-semibold text-[#16a34a] dark:text-[#4ade80]">Available for work</span>
         </div>
+        {practice && (
+          <div className={cn("mt-2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border", practice.cls)}>
+            <div className={cn("w-1.5 h-1.5 rounded-full", practice.dot)} />
+            <span className="text-[11px] font-semibold text-[#6b6b6b] dark:text-white/70">{practice.label}</span>
+          </div>
+        )}
         <Link href="/dashboard/profile" className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border border-[#e3e3e3] dark:border-white/15 text-[12px] font-medium text-[#6b6b6b] dark:text-white/60 hover:border-[#ffd716] hover:text-[#1e1e1e] dark:hover:text-white transition-colors">
           View profile <ArrowRight size={11} />
         </Link>
