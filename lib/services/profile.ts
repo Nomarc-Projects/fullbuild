@@ -214,10 +214,16 @@ export async function completeProfessionalOnboarding(input: {
   }));
   if (certRows.length) await db.insert(certification).values(certRows).catch(() => {});
 
+  // The onboarding collects work dates as year-only strings (e.g. "2020"), but
+  // `work_experience.start_date/end_date` are `date` columns, which CockroachDB
+  // rejects if they lack a full YYYY-MM-DD. Normalise a bare year to Jan 1 of
+  // that year so the insert doesn't throw (and then get swallowed by the catch
+  // below, silently dropping the experience from the Qualifications tab).
+  const fullDate = (y?: string) => (y && /^\d{4}$/.test(y) ? `${y}-01-01` : y || null);
   const expRows = (input.experience ?? []).filter((x) => x.title.trim() && x.company.trim()).map((x) => ({
     userId: uid, title: x.title.trim(), company: x.company.trim(), description: x.description?.trim() || null,
     location: x.location?.trim() || null, workplaceType: x.workplaceType?.trim() || null,
-    startDate: x.startDate || null, endDate: x.current ? null : x.endDate || null, current: !!x.current,
+    startDate: fullDate(x.startDate), endDate: x.current ? null : fullDate(x.endDate), current: !!x.current,
   }));
   if (expRows.length) await db.insert(workExperience).values(expRows).catch(() => {});
 
@@ -229,6 +235,7 @@ export async function completeProfessionalOnboarding(input: {
   if (eduRows.length) await db.insert(education).values(eduRows).catch(() => {});
 
   await grantRole(uid, "professional", "self_serve_tier1");
+  revalidatePath("/dashboard/profile");
   revalidatePath("/dashboard/jobs");
   revalidatePath("/dashboard");
 }
