@@ -106,6 +106,7 @@ export async function saveProfile(input: {
   practiceStatus?: PracticeStatus;
   licenseNumber?: string; practiceCompanyName?: string; practiceRegNumber?: string;
   practiceCompanyAddress?: string; practiceCompanyBio?: string;
+  registrationNumber?: string;
 }) {
   const uid = await requireUserId();
   // Fields belonging to a status the user is no longer on are cleared rather
@@ -127,6 +128,7 @@ export async function saveProfile(input: {
       ? { phone: input.phone || null, phoneVerified: phoneChanged ? false : !!existing?.phoneVerified }
       : {}),
     ...(input.practiceLicenceStatus !== undefined ? { practiceLicenceStatus: input.practiceLicenceStatus || null } : {}),
+    ...(input.registrationNumber !== undefined ? { registrationNumber: input.registrationNumber || null } : {}),
     ...(status !== undefined ? { practiceStatus: status || null } : {}),
     ...(input.licenseNumber !== undefined || status !== undefined ? { licenseNumber: licensed ? (input.licenseNumber ?? null) : null } : {}),
     ...(input.practiceCompanyName !== undefined || status !== undefined ? { practiceCompanyName: isCompany ? (input.practiceCompanyName ?? null) : null } : {}),
@@ -179,6 +181,11 @@ export async function completeProfessionalOnboarding(input: {
   location?: string;
   availability: string;
   practiceLicenceStatus?: string;
+  licenseNumber?: string;
+  registrationNumber?: string;
+  practiceCompanyName?: string;
+  practiceRegNumber?: string;
+  practiceCompanyAddress?: string;
   skills?: string[];
   certifications?: { name: string; issuer?: string; year?: number }[];
   experience?: { title: string; company: string; description?: string; location?: string; workplaceType?: string; startDate?: string; endDate?: string; current?: boolean }[];
@@ -192,6 +199,11 @@ export async function completeProfessionalOnboarding(input: {
     location: input.location ?? "",
     availability: input.availability,
     practiceLicenceStatus: input.practiceLicenceStatus ?? "",
+    ...(input.licenseNumber !== undefined ? { licenseNumber: input.licenseNumber || undefined } : {}),
+    ...(input.registrationNumber !== undefined ? { registrationNumber: input.registrationNumber || undefined } : {}),
+    ...(input.practiceCompanyName !== undefined ? { practiceCompanyName: input.practiceCompanyName || undefined } : {}),
+    ...(input.practiceRegNumber !== undefined ? { practiceRegNumber: input.practiceRegNumber || undefined } : {}),
+    ...(input.practiceCompanyAddress !== undefined ? { practiceCompanyAddress: input.practiceCompanyAddress || undefined } : {}),
   });
 
   const skillRows = (input.skills ?? []).filter((s) => s.trim()).map((s) => ({ userId: uid, name: s.trim(), kind: "skill" }));

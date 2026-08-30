@@ -6,9 +6,12 @@ import { can } from "@/lib/entitlements";
 
 export default async function PostedJobsPage() {
   const viewer = await getViewer();
-  if (!can(viewer, "hireTalent")) {
-    return <EmployerOnboardingWizard />;
+  // Professionals who've completed registration see their posted jobs directly
+  // (no employer setup screen in the way). The onboarding wizard is only shown
+  // to signed-in users who haven't registered professionally yet.
+  if (viewer.signedIn && can(viewer, "jobBoard")) {
+    const jobs = await getMyPostedJobs();
+    return <PostedJobs jobs={jobs} />;
   }
-  const jobs = await getMyPostedJobs();
-  return <PostedJobs jobs={jobs} />;
+  return <EmployerOnboardingWizard />;
 }

@@ -7,16 +7,16 @@ import { ArrowLeft, Briefcase, MapPin, Clock, GraduationCap, Plus, X, Send } fro
 import { Field, inputClass } from "@/components/ui/modal";
 import { DatePicker } from "@/components/ui/date-picker";
 import { createJob } from "@/lib/services/jobs";
-import { getKycState } from "@/lib/services/kyc";
-import { VerificationRequiredModal } from "@/components/dashboard/shared/verification-required-modal";
+import { getAccountInfo } from "@/lib/services/account";
 import { cn } from "@/lib/utils";
 
 const EMPLOYMENT = ["Full-time", "Part-time", "Contract", "Internship", "Project-based"];
 const WORK_MODEL = ["On-site", "Hybrid", "Remote"];
 const EXPERIENCE = ["Entry level", "Intermediate level", "Senior level"];
 const CURRENCIES = ["NGN", "USD", "GBP", "EUR"];
+const COMPANY_TYPES = ["Company", "Individual"];
 const APPLY_OPTS = [
-  { v: "nomarc", label: "Nomarc Data Gig form" },
+  { v: "nomarc", label: "Nomarc Projects" },
   { v: "url", label: "External URL" },
   { v: "email", label: "Email" },
 ] as const;
@@ -148,7 +148,7 @@ function CheckRow({ checked, onChange, label }: { checked: boolean; onChange: (v
 export function JobsPostWizard() {
   const router = useRouter();
   const [f, setF] = useState({
-    title: "", company: "", location: "", employmentType: "Full-time",
+    title: "", companyType: "Company", company: "", location: "", employmentType: "Full-time",
     experienceLevel: "Intermediate level", workModel: "On-site",
     currency: "NGN", salaryMin: "", salaryMax: "",
     description: "", recruiterName: "", recruiterTitle: "", applyTarget: "",
@@ -161,14 +161,21 @@ export function JobsPostWizard() {
   const [deadline, setDeadline] = useState("");
   const [preview, setPreview] = useState(false);
   const [pending, start] = useTransition();
-  const [tier2, setTier2] = useState<boolean | null>(null);
-  const [showVerify, setShowVerify] = useState(false);
+  const [accountName, setAccountName] = useState("");
   const set = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
 
-  // Publishing (not drafting) requires Tier-2 identity verification.
+  // Prefill "Individual" posting with the signed-in user's name (editable).
   useEffect(() => {
-    getKycState().then((s) => setTier2(s.tiers[1]?.status === "approved")).catch(() => setTier2(false));
+    getAccountInfo().then((d) => {
+      setAccountName(d.name);
+      setF((p) => (p.companyType === "Individual" && !p.company.trim() ? { ...p, company: d.name } : p));
+    }).catch(() => {});
   }, []);
+
+  function onCompanyType(v: string) {
+    set("companyType", v);
+    set("company", v === "Individual" ? accountName : "");
+  }
 
   function toPreview() {
     if (!f.title.trim()) { toast.error("Role title is required"); return; }
@@ -179,7 +186,6 @@ export function JobsPostWizard() {
 
   function submit(draft: boolean) {
     if (!f.title.trim()) { toast.error("Role title is required"); return; }
-    if (!draft && tier2 === false) { setShowVerify(true); return; }
     start(async () => {
       try {
         await createJob({
@@ -195,6 +201,10 @@ export function JobsPostWizard() {
           applyTarget: f.applyTarget,
         }, draft);
         toast.success(draft ? "Saved as draft" : "Job published!");
+        // Purge the client router cache so the job board re-fetches when the
+        // user navigates back to it — otherwise a prefetched (empty) payload
+        // for /dashboard/jobs rides the router cache and hides the new job.
+        router.refresh();
         router.push("/dashboard/jobs/posted");
       } catch (e) { toast.error(e instanceof Error ? e.message : "Could not save job"); }
     });
@@ -264,7 +274,12 @@ export function JobsPostWizard() {
             <div className={two}>
               <Field label="Role title"><input className={inputClass} value={f.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g Senior Architect" /></Field>
               <Field label="Work model"><Select value={f.workModel} onChange={(v) => set("workModel", v)} options={WORK_MODEL} /></Field>
-              <Field label="Company"><input className={inputClass} value={f.company} onChange={(e) => set("company", e.target.value)} placeholder="e.g UrbanGrid Studios" /></Field>
+              <Field label="Posting as">
+                <Select value={f.companyType} onChange={onCompanyType} options={COMPANY_TYPES} />
+              </Field>
+              <Field label={f.companyType === "Company" ? "Company name" : "Your name"}>
+                <input className={inputClass} value={f.company} onChange={(e) => set("company", e.target.value)} placeholder={f.companyType === "Company" ? "e.g UrbanGrid Studios" : "e.g. John Adeyemi"} />
+              </Field>
               <Field label="Location"><input className={inputClass} value={f.location} onChange={(e) => set("location", e.target.value)} placeholder="City, State, Country" /></Field>
               <Field label="Employment type"><Select value={f.employmentType} onChange={(v) => set("employmentType", v)} options={EMPLOYMENT} /></Field>
               <Field label="Experience level"><Select value={f.experienceLevel} onChange={(v) => set("experienceLevel", v)} options={EXPERIENCE} /></Field>
@@ -338,8 +353,6 @@ export function JobsPostWizard() {
           </div>
         </div>
       )}
-
-      <VerificationRequiredModal open={showVerify} onClose={() => setShowVerify(false)} />
     </div>
   );
 }

@@ -51,6 +51,7 @@ const PRACTICE_STATUS_OPTIONS = [
   { label: "Graduate / Freelancer", value: "graduate" },
   { label: "Consultant", value: "consultant" },
   { label: "Licensed", value: "licensed" },
+  { label: "Registered", value: "registered" },
   { label: "Company", value: "company" },
 ];
 
@@ -78,6 +79,11 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
   const [skill, setSkill] = useState("");
   const [skills, setSkills] = useState<string[]>([]);
   const [practiceLicenceStatus, setPracticeLicenceStatus] = useState("");
+  const [licenseNumber, setLicenseNumber] = useState("");
+  const [registrationNumber, setRegistrationNumber] = useState("");
+  const [practiceCompanyName, setPracticeCompanyName] = useState("");
+  const [practiceRegNumber, setPracticeRegNumber] = useState("");
+  const [practiceCompanyAddress, setPracticeCompanyAddress] = useState("");
   const [certs, setCerts] = useState<{ name: string; issuer: string; year: string }[]>([]);
   const [cert, setCert] = useState({ name: "", issuer: "", year: "" });
 
@@ -143,6 +149,11 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
         location,
         availability: AVAIL_TO_DB[availability] ?? availability,
         practiceLicenceStatus: PRACTICE_STATUS_TO_DB[practiceLicenceStatus] ?? practiceLicenceStatus,
+        licenseNumber,
+        registrationNumber,
+        practiceCompanyName,
+        practiceRegNumber,
+        practiceCompanyAddress,
         skills,
         certifications: certs.map((c) => ({ name: c.name, issuer: c.issuer, year: c.year ? Number(c.year) : undefined })),
         experience: experience.map((x) => ({ title: x.title, company: x.company, startDate: x.startDate, endDate: x.current ? undefined : x.endDate, current: x.current })),
@@ -209,6 +220,33 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
                   <Field label="Professional practice status">
                     <SelectMenu placeholder="Select status" value={practiceLicenceStatus} onChange={setPracticeLicenceStatus} options={PRACTICE_STATUS_OPTIONS.map((o) => o.label)} />
                   </Field>
+                  {PRACTICE_STATUS_TO_DB[practiceLicenceStatus] === "licensed" && (
+                    <div className="mt-3">
+                      <Field label="Licence number">
+                        <input className={inputClass} value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} placeholder="e.g. COREN/XXXXX/12345" />
+                      </Field>
+                    </div>
+                  )}
+                  {PRACTICE_STATUS_TO_DB[practiceLicenceStatus] === "registered" && (
+                    <div className="mt-3">
+                      <Field label="Registration number">
+                        <input className={inputClass} value={registrationNumber} onChange={(e) => setRegistrationNumber(e.target.value)} placeholder="e.g. ARCON/REG/004512" />
+                      </Field>
+                    </div>
+                  )}
+                  {PRACTICE_STATUS_TO_DB[practiceLicenceStatus] === "company" && (
+                    <div className="mt-3 grid grid-cols-1 gap-3">
+                      <Field label="Company name">
+                        <input className={inputClass} value={practiceCompanyName} onChange={(e) => setPracticeCompanyName(e.target.value)} placeholder="e.g. Arcade Builds Ltd" />
+                      </Field>
+                      <Field label="Registration number">
+                        <input className={inputClass} value={practiceRegNumber} onChange={(e) => setPracticeRegNumber(e.target.value)} placeholder="e.g. RAC/004512" />
+                      </Field>
+                      <Field label="Company address">
+                        <input className={inputClass} value={practiceCompanyAddress} onChange={(e) => setPracticeCompanyAddress(e.target.value)} placeholder="e.g. 12 Allen Avenue, Ikeja" />
+                      </Field>
+                    </div>
+                  )}
                 </div>
 
                 <p className="mt-4 text-[12.5px] font-medium text-[#1e1e1e] dark:text-white">Skills</p>

@@ -25,13 +25,7 @@ export function PostedJobs({ jobs = [], initialTab = "active" }: { jobs?: Posted
   const [tab, setTab] = useState<Tab>(initialTab);
   const [delId, setDelId] = useState<string | null>(null);
   const [guidelinesOpen, setGuidelinesOpen] = useState(false);
-  const [tier2, setTier2] = useState<boolean | null>(null);
-  const [verifyPromptId, setVerifyPromptId] = useState<string | null>(null);
   const [, start] = useTransition();
-
-  useEffect(() => {
-    getKycState().then((s) => setTier2(s.tiers[1]?.status === "approved")).catch(() => setTier2(false));
-  }, []);
 
   const active = useMemo(() => list.filter((j) => !j.draft && j.status === "open"), [list]);
   const drafts = useMemo(() => list.filter((j) => j.draft), [list]);
@@ -53,7 +47,6 @@ export function PostedJobs({ jobs = [], initialTab = "active" }: { jobs?: Posted
     bg(duplicateJobAsDraft(j.id), () => {}, "Duplicated to drafts");
   };
   const publish = (j: PostedJob) => {
-    if (tier2 === false) { setVerifyPromptId(j.id); return; }
     const prev = list;
     setList((l) => l.map((x) => (x.id === j.id ? { ...x, draft: false } : x)));
     bg(publishDraftJob(j.id), () => setList(prev), "Job published");
@@ -156,7 +149,6 @@ export function PostedJobs({ jobs = [], initialTab = "active" }: { jobs?: Posted
       </Modal>
 
       <PostingGuidelinesDrawer open={guidelinesOpen} onClose={() => setGuidelinesOpen(false)} />
-      <VerificationRequiredModal open={!!verifyPromptId} onClose={() => setVerifyPromptId(null)} />
     </div>
   );
 }

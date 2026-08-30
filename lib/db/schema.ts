@@ -29,6 +29,8 @@ export const profile = pgTable("profile", {
   practiceStatus: text("practice_status"),
   /** Set only when practiceStatus = "licensed". */
   licenseNumber: text("license_number"),
+  /** Professional registration number (collect on onboarding Registered status). */
+  registrationNumber: text("registration_number"),
   /** Set only when practiceStatus = "company". Distinct from the `company`
    *  table, which is the exhibitor storefront — see drizzle/0033. */
   practiceCompanyName: text("practice_company_name"),
