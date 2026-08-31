@@ -3,18 +3,26 @@
 // outside Next's bundler where the "server-only" shim can't resolve. It is only
 // ever imported by server code, so the guard is unnecessary here.
 import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import { resolveSiteUrl } from "@/lib/site-url";
 
 /**
- * Transactional email over the Nomarc mail server (site4now SMTP).
+ * Transactional email via Resend (default when RESEND_API_KEY is set), falling
+ * back to the Nomarc SMTP server (site4now) otherwise.
  *
  * Config comes from env (Doppler → Render/Vercel), never hardcoded:
+ *   RESEND_API_KEY   — Resend API key; enables the Resend provider
+ *   RESEND_FROM      — optional sender override; defaults to EMAIL_FROM
  *   SMTP_HOST, SMTP_PORT (465), SMTP_SECURE ("true"), SMTP_USER, SMTP_PASS,
- *   EMAIL_FROM  e.g.  "Nomarc <info@nomarcprojects.com>"
+ *   EMAIL_FROM       e.g.  "Nomarc <info@nomarcprojects.com>"
  *
- * If SMTP isn't configured (e.g. a preview env), we log and no-op instead of
- * throwing, so auth flows never hard-fail on a missing mailer.
+ * Resend is preferred: it's what the product is moving to and needs no SMTP
+ * credentials. If neither Resend nor SMTP is configured (e.g. a preview env),
+ * we log and no-op instead of throwing, so auth flows never hard-fail.
  */
+
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const RESEND_FROM = process.env.RESEND_FROM || process.env.EMAIL_FROM || "Nomarc Projects <info@nomarcprojects.com>";
 const HOST = process.env.SMTP_HOST;
 const PORT = Number(process.env.SMTP_PORT || 465);
 const SECURE = (process.env.SMTP_SECURE ?? "true") !== "false";
@@ -22,7 +30,16 @@ const USER = process.env.SMTP_USER;
 const PASS = process.env.SMTP_PASS;
 export const EMAIL_FROM = process.env.EMAIL_FROM || "Nomarc Projects <info@nomarcprojects.com>";
 
+export const isResendConfigured = Boolean(RESEND_API_KEY);
 export const isMailConfigured = Boolean(HOST && USER && PASS);
+export const isEmailConfigured = isResendConfigured || isMailConfigured;
+
+let resend: Resend | null = null;
+function getResend() {
+  if (!isResendConfigured) return null;
+  if (!resend) resend = new Resend(RESEND_API_KEY);
+  return resend;
+}
 
 /**
  * Transport-level guardrails, overridable via env if the provider's real limits
@@ -75,6 +92,24 @@ function getTransport() {
 export async function sendEmail({ to, subject, html, text, fromName, replyTo }: {
   to: string; subject: string; html: string; text?: string; fromName?: string; replyTo?: string;
 }) {
+  const from = fromName?.trim()
+    ? `${fromName.trim().replace(/["<>\r\n]/g, "")} <${EMAIL_FROM.match(/<(.+)>/)?.[1] ?? EMAIL_FROM}>`
+    : EMAIL_FROM;
+
+  // Resend is the primary provider.
+  const r = getResend();
+  if (r) {
+    await r.emails.send({
+      from: RESEND_FROM,
+      to,
+      subject,
+      html,
+      text: text || stripHtml(html),
+      replyTo: replyTo?.trim() || undefined,
+    });
+    return { skipped: false };
+  }
+
   const t = getTransport();
   if (!t) {
     // In dev/preview a missing mailer is expected, so no-op rather than break
@@ -82,14 +117,11 @@ export async function sendEmail({ to, subject, html, text, fromName, replyTo }: 
     // mail is silently vanishing — throw so it surfaces instead of leaving
     // users staring at "check your inbox" for mail that was never sent.
     if (process.env.NODE_ENV === "production") {
-      throw new Error(`SMTP not configured — refusing to silently drop email "${subject}"`);
+      throw new Error("Email not configured — refusing to silently drop email \"" + subject + "\"");
     }
-    console.warn(`[mailer] SMTP not configured — skipped email "${subject}" → ${to}`);
+    console.warn(`[mailer] no email provider configured (Resend/SMTP) — skipped email "${subject}" → ${to}`);
     return { skipped: true };
   }
-  const from = fromName?.trim()
-    ? `${fromName.trim().replace(/["<>\r\n]/g, "")} <${EMAIL_FROM.match(/<(.+)>/)?.[1] ?? EMAIL_FROM}>`
-    : EMAIL_FROM;
   await t.sendMail({ from, to, subject, html, text: text || stripHtml(html), replyTo: replyTo?.trim() || undefined });
   return { skipped: false };
 }

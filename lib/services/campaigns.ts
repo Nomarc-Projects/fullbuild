@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/client";
 import { auth } from "@/lib/auth";
 import { requireUserId } from "@/lib/server-user";
-import { sendEmail, emailLayout, isMailConfigured, siteUrl } from "@/lib/email/mailer";
+import { sendEmail, emailLayout, isEmailConfigured, siteUrl } from "@/lib/email/mailer";
 import { applyShortcodes, previewRecipient } from "@/lib/email/shortcodes";
 import { unsubscribeUrlFor } from "@/lib/email/unsubscribe";
 import { withTracking } from "@/lib/email/tracking";
@@ -417,7 +417,7 @@ export async function sendTestEmail(input: CampaignInput & { to?: string }): Pro
     if (UNDELIVERABLE_TLD.test(target)) {
       return { ok: false, error: `${target} can't receive mail — that domain is reserved for testing. Enter a real inbox you can open.` };
     }
-    if (!isMailConfigured) return { ok: false, error: "SMTP isn't configured, so no test could be sent." };
+    if (!isEmailConfigured) return { ok: false, error: "Email isn't configured, so no test could be sent." };
     const baseUrl = siteUrl();
     await sendEmail({
       to: target,
@@ -553,7 +553,7 @@ async function enqueueCampaignForDelivery(
   const c = await readCampaignForEnqueue(id);
   if (!c) return { ok: false, error: "That campaign no longer exists." };
   if (c.status === "sent") return { ok: false, error: "This campaign has already been sent." };
-  if (!isMailConfigured) return { ok: false, error: "SMTP isn't configured, so nothing was queued." };
+  if (!isEmailConfigured) return { ok: false, error: "Email isn't configured, so nothing was queued." };
 
   // A campaign stuck in 'sending' is usually still mid-drain. Re-queueing it
   // would just add ledger rows the drain is already working through. The only
@@ -661,7 +661,7 @@ export async function sendCampaignNow(id: string): Promise<{ ok: boolean; error?
     const c = await getCampaign(id);
     if (!c) return { ok: false, error: "That campaign no longer exists." };
     if (c.status === "sent" || c.status === "sending") return { ok: false, error: "This campaign has already been sent." };
-    if (!isMailConfigured) return { ok: false, error: "SMTP isn't configured, so nothing was sent." };
+    if (!isEmailConfigured) return { ok: false, error: "Email isn't configured, so nothing was sent." };
 
     const recipients = await resolveRecipients({ segmentId: c.segmentId, audienceKey: c.audienceKey, recipientUserIds: c.recipientUserIds, segmentIds: c.segmentIds });
     if (recipients.length === 0) return { ok: false, error: "That audience currently matches nobody — nothing was sent." };

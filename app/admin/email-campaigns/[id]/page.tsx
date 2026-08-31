@@ -4,7 +4,7 @@ import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { CampaignComposer } from "@/components/admin/campaign-composer";
 import { getCampaign } from "@/lib/services/campaigns";
 import { listSegments } from "@/lib/services/segments";
-import { isMailConfigured } from "@/lib/email/mailer";
+import { isEmailConfigured } from "@/lib/email/mailer";
 import { auth } from "@/lib/auth";
 
 export const metadata = { title: "Edit Campaign" };
@@ -30,7 +30,7 @@ export default async function EditCampaignPage({ params }: { params: Promise<{ i
       <CampaignComposer
         campaign={campaign}
         segments={segments.map((s) => ({ id: s.id, name: s.name }))}
-        mailConfigured={isMailConfigured}
+        mailConfigured={isEmailConfigured}
         defaultTestTo={adminEmail}
       />
     </div>

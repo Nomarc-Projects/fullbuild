@@ -3,7 +3,7 @@ import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { EmailCampaignsView } from "@/components/admin/email-campaigns-view";
 import { MailThroughputCard } from "@/components/admin/mail-throughput-card";
 import { listCampaigns } from "@/lib/services/campaigns";
-import { isMailConfigured } from "@/lib/email/mailer";
+import { isEmailConfigured } from "@/lib/email/mailer";
 import { auth } from "@/lib/auth";
 
 export const metadata = { title: "Email Campaigns" };
@@ -29,7 +29,7 @@ export default async function EmailCampaignsPage() {
           <MailThroughputCard />
         </div>
       )}
-      <EmailCampaignsView rows={rows} mailConfigured={isMailConfigured} isSuperAdmin={isSuperAdmin} />
+      <EmailCampaignsView rows={rows} mailConfigured={isEmailConfigured} isSuperAdmin={isSuperAdmin} />
     </div>
   );
 }
