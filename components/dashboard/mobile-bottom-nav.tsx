@@ -25,16 +25,20 @@ const ITEMS = [
  * `#161616`, so the same fill would all but vanish — hence the lighter `#262626`
  * plus a hairline rim there.
  */
-export function MobileBottomNav() {
+export function MobileBottomNav({ exhibitionEnabled }: { exhibitionEnabled: boolean }) {
   const pathname = usePathname();
   const isMessages = pathname.startsWith("/dashboard/messages");
   if (isMessages) return null;
+
+  // The super-admin Exhibition Hub availability toggle decides whether the
+  // in-dashboard Products doorway appears. Off = hidden from the nav bar.
+  const items = exhibitionEnabled ? ITEMS : ITEMS.filter((i) => i.href !== "/dashboard/products");
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-20 md:hidden flex justify-center pointer-events-none px-4" aria-label="Mobile navigation">
       <div className="pointer-events-auto w-full max-w-[480px] mb-4">
         <div className="flex items-center justify-between rounded-full bg-[#1e1e1e] dark:bg-[#262626] border border-transparent dark:border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.18)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.6)] px-2 py-2">
-          {ITEMS.map((item) => {
+          {items.map((item) => {
             const active = item.href === "/dashboard"
               ? pathname === "/dashboard"
               : pathname.startsWith(item.href);

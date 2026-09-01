@@ -109,11 +109,13 @@ function NavLink({ item, collapsed, active, onNavigate }: { item: Item; collapse
   );
 }
 
-function SidebarInner({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
+function SidebarInner({ collapsed, exhibitionEnabled, onNavigate }: { collapsed: boolean; exhibitionEnabled: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const user = useAuth((s) => s.user);
-  const nav = navGroups;
+  // The super-admin Exhibition Hub availability toggle decides whether members
+  // see the Exhibition Hub doorways. Off = withheld from the sidebar; on = shown.
+  const nav = exhibitionEnabled ? navGroups : navGroups.filter((g) => g.title !== "Exhibition Hub");
   const name = user?.name || "My Account";
   const email = user?.email || "";
   // Only the single best (longest) prefix match is active, so e.g.
@@ -225,7 +227,7 @@ function SidebarInner({ collapsed, onNavigate }: { collapsed: boolean; onNavigat
   );
 }
 
-export function DashboardSidebar() {
+export function DashboardSidebar({ exhibitionEnabled }: { exhibitionEnabled: boolean }) {
   const [collapsed, setCollapsed] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -264,7 +266,7 @@ export function DashboardSidebar() {
             <button onClick={() => { if (collapsed) { setCollapsed(false); } else { setCollapsed(true); setHovered(false); } }} className="text-[#9a9a9a] hover:text-[#1e1e1e] dark:hover:text-white transition-colors" aria-label={collapsed ? "Pin sidebar open" : "Collapse sidebar"}>{collapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}</button>
           </div>
         )}
-        <SidebarInner collapsed={!expanded} />
+        <SidebarInner collapsed={!expanded} exhibitionEnabled={exhibitionEnabled} />
       </aside>
 
       {/* mobile top bar */}
@@ -305,7 +307,7 @@ export function DashboardSidebar() {
                 <Link href="/" onClick={() => setMobileOpen(false)} aria-label="Nomarc home"><Logo size="sm" className="text-[#1e1e1e] dark:text-white" /></Link>
                 <button onClick={() => setMobileOpen(false)} aria-label="Close menu" className="text-[#9a9a9a] hover:text-[#1e1e1e] dark:hover:text-white"><X size={20} /></button>
               </div>
-              <SidebarInner collapsed={false} onNavigate={() => setMobileOpen(false)} />
+              <SidebarInner collapsed={false} exhibitionEnabled={exhibitionEnabled} onNavigate={() => setMobileOpen(false)} />
             </motion.aside>
           </div>
         )}

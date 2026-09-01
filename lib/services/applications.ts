@@ -6,8 +6,6 @@ import { db } from "@/lib/db/client";
 import { application, job } from "@/lib/db/schema";
 import { requireUserId } from "@/lib/server-user";
 import { notify } from "@/lib/notify-internal";
-import { getViewer } from "@/lib/viewer-server";
-import { can } from "@/lib/entitlements";
 
 export type ApplicationRow = { id: string; jobId: string; role: string; company: string; date: string; status: string };
 
@@ -21,15 +19,6 @@ export async function submitApplication(input: {
 }) {
   const uid = await requireUserId();
   if (!input.jobId) throw new Error("Missing job");
-
-  // Authoritative gate. The pages in front of this render onboarding/locked
-  // states, but those are UI only — this action is directly callable, so the
-  // role and Tier 1 checks have to hold here too. Drafts are exempt: saving a
-  // draft is not applying, and half-finished drafts are how people get to Tier 1.
-  if (!input.draft) {
-    const viewer = await getViewer();
-    if (!can(viewer, "jobBoard")) throw new Error("Join the professional track to apply for jobs.");
-  }
 
   await db.insert(application).values({
     jobId: input.jobId,

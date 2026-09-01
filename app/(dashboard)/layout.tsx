@@ -14,6 +14,7 @@ import { SessionHydrator } from "@/components/session-hydrator";
 import { PresenceHeartbeat } from "@/components/dashboard/presence-heartbeat";
 import { TourProvider } from "@/components/tour/tour-provider";
 import { getUnreadNotificationCount } from "@/lib/services/notifications";
+import { getExhibitionHub } from "@/lib/services/platform-settings-read";
 
 // Dashboard is authenticated + session-driven — never statically prerender it.
 export const dynamic = "force-dynamic";
@@ -61,6 +62,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // Real unread count — this badge used to be hardcoded to 3, so every account
   // (including brand-new ones) showed 3 phantom notifications.
   const unreadNotifications = await getUnreadNotificationCount().catch(() => 0);
+  // The super-admin Exhibition Hub availability toggle controls whether the
+  // Exhibition Hub nav entries are shown in the member dashboard. Off = hidden,
+  // on = visible.
+  const exhibitionEnabled = (await getExhibitionHub().catch(() => ({ enabled: false }))).enabled;
 
   return (
     <TourProvider audience={viewer.activeRole}>
@@ -68,7 +73,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <div className="flex h-screen overflow-hidden bg-[#f9f9f9] dark:bg-[#161616]">
           <SessionHydrator />
           <PresenceHeartbeat />
-          <DashboardSidebar />
+          <DashboardSidebar exhibitionEnabled={exhibitionEnabled} />
           <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
             <div className="pt-14 lg:pt-0 pb-20 md:pb-0 max-w-full">
               <ImpersonationBanner />
@@ -77,7 +82,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             </div>
           </main>
           <MessagesFab />
-          <MobileBottomNav />
+          <MobileBottomNav exhibitionEnabled={exhibitionEnabled} />
         </div>
       </RoleProvider>
     </TourProvider>

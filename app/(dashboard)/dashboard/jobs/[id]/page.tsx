@@ -3,10 +3,6 @@ import { getJobById, getJobsForBrowse } from "@/lib/services/catalog";
 import { getJobPostingDetail } from "@/lib/services/jobs";
 import { JOB_OVERVIEW, type SampleJob } from "@/lib/sample-jobs";
 import { JobDetail } from "@/components/dashboard/professional/job-detail";
-import { ProfessionalOnboarding } from "@/components/dashboard/onboarding/professional-onboarding";
-import { getViewer } from "@/lib/viewer-server";
-import { can } from "@/lib/entitlements";
-import { getSavedLocation } from "@/lib/services/profile";
 
 /**
  * Real jobs only.
@@ -19,20 +15,6 @@ import { getSavedLocation } from "@/lib/services/profile";
  */
 export default async function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-
-  // Same doorway rule as the board itself — a listing is a professional-track
-  // page, so a viewer without the role is offered onboarding rather than the job.
-  const viewer = await getViewer();
-  if (!can(viewer, "jobBoard")) {
-    const savedLocation = await getSavedLocation();
-    return (
-      <ProfessionalOnboarding
-        title="View this role on Nomarc"
-        description="Set up your professional profile to see full role details and apply. It takes a couple of minutes — no documents needed today."
-        savedLocation={savedLocation}
-      />
-    );
-  }
 
   const job: SampleJob | null = await getJobById(id).catch(() => null);
   if (!job) notFound();
