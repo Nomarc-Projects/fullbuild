@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { AdminSidebar } from "@/components/admin/admin-nav";
 import { AdminTopBar } from "@/components/admin/admin-top-bar";
 import { TourProvider } from "@/components/tour/tour-provider";
+import { SessionHydrator } from "@/components/session-hydrator";
 import { getAdminAlertCounts } from "@/lib/services/admin";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <TourProvider audience={role === "super_admin" ? "super_admin" : "admin"}>
+      <SessionHydrator />
       <div className="flex h-screen overflow-hidden bg-[#f9f9f9] dark:bg-[#161616]">
         <AdminSidebar />
         <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">

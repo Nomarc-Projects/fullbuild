@@ -13,15 +13,16 @@ export function SessionHydrator() {
   useEffect(() => {
     if (isPending) return;
     if (data?.user) {
-      const u = data.user as { name?: string; email?: string; image?: string | null };
+      const u = data.user as { name?: string; email?: string; image?: string | null; role?: string };
       const name = u.name ?? "";
       const email = u.email ?? "";
       const avatar = u.image ?? undefined;
-      signIn({ name, email, avatar });
+      const role = u.role;
+      signIn({ name, email, avatar, role });
       // Always fetch the stored profile/company avatar so the sidebar shows
       // the picture the user actually uploaded, not just the OAuth image.
       getMyAvatar()
-        .then((url) => { if (url) signIn({ name, email, avatar: url }); })
+        .then((url) => { if (url) signIn({ name, email, avatar: url, role }); })
         .catch(() => {});
     } else {
       signOut();

@@ -4,6 +4,9 @@ export interface AuthUser {
   name: string;
   email: string;
   avatar?: string;
+  /** Authorization role ("client" | "professional" | ... | "admin" | "super_admin").
+   *  Drives super-admin-only nav/UI on the client; server actions re-enforce it. */
+  role?: string;
 }
 
 interface AuthState {
