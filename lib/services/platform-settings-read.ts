@@ -15,6 +15,10 @@ import {
   TICKER_SPEED_DEFAULT,
   normalizeTickerSpeed,
   type TickerSpeedSetting,
+  EXHIBITION_HUB_TAG,
+  EXHIBITION_HUB_DEFAULT,
+  normalizeExhibitionHub,
+  type ExhibitionHubSetting,
 } from "@/lib/services/platform-settings-shared";
 
 /* ── Reading platform settings ──────────────────────────────────────────
@@ -123,4 +127,31 @@ const readTickerSpeed = unstable_cache(
 
 export async function getTickerSpeed(): Promise<TickerSpeedSetting> {
   return readTickerSpeed();
+}
+
+/**
+ * Exhibition Hub availability. Same fail-open reasoning as maintenance: an
+ * unreadable value falls back to the closed default rather than a bad query
+ * accidentally flinging the whole marketplace open.
+ */
+const readExhibitionHub = unstable_cache(
+  async (): Promise<ExhibitionHubSetting> => {
+    try {
+      const res = await db.execute(
+        sql`SELECT value FROM platform_setting WHERE key = 'exhibition_hub' LIMIT 1`,
+      );
+      const row = (res.rows as { value?: unknown }[])[0];
+      if (!row) return EXHIBITION_HUB_DEFAULT;
+      const value = typeof row.value === "string" ? JSON.parse(row.value) : row.value;
+      return normalizeExhibitionHub(value);
+    } catch {
+      return EXHIBITION_HUB_DEFAULT;
+    }
+  },
+  ["platform-setting-exhibition-hub"],
+  { revalidate: 30, tags: [EXHIBITION_HUB_TAG] },
+);
+
+export async function getExhibitionHub(): Promise<ExhibitionHubSetting> {
+  return readExhibitionHub();
 }

@@ -1,9 +1,14 @@
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { ComingSoon } from "@/components/coming-soon";
+import { getExhibitionHub } from "@/lib/services/platform-settings-read";
 
 /**
- * Exhibition Hub is admin-only for now.
+ * Exhibition Hub availability.
+ *
+ * Controlled by the super-admin "Exhibition Hub" toggle (a DB-backed setting):
+ *   - ON  → open to everyone.
+ *   - OFF → non-admins see the Coming Soon screen; admins always get through.
  *
  * Gated in a layout rather than per page so the whole subtree is covered by one
  * check — browse, product detail, compare, cart and the three checkout steps.
@@ -24,7 +29,12 @@ export default async function ExhibitionHubLayout({ children }: { children: Reac
   const role = (session?.user as { role?: string } | undefined)?.role;
   const isAdmin = role === "admin" || role === "super_admin";
 
-  if (!isAdmin) {
+  // Fail open to CLOSED: if the setting can't be read, the hub stays locked
+  // rather than accidentally going public.
+  const { enabled } = await getExhibitionHub();
+  const openToPublic = enabled || isAdmin;
+
+  if (!openToPublic) {
     return (
       <ComingSoon
         headline="The Exhibition Hub is almost ready"

@@ -9,6 +9,7 @@
 export const MAINTENANCE_TAG = "platform-setting:maintenance";
 export const MAIL_THROUGHPUT_TAG = "platform-setting:mail-throughput";
 export const TICKER_SPEED_TAG = "platform-setting:ticker-speed";
+export const EXHIBITION_HUB_TAG = "platform-setting:exhibition-hub";
 
 /* ── News ticker speed ──────────────────────────────────────────────────
  * Seconds for one full marquee pass. Higher = slower. Adjustable without a
@@ -95,5 +96,27 @@ export function normalizeMaintenance(raw: unknown): MaintenanceSetting {
     allowEmails: Array.isArray(v.allowEmails)
       ? v.allowEmails.filter((e): e is string => typeof e === "string").map((e) => e.trim().toLowerCase()).filter(Boolean)
       : [],
+  };
+}
+
+/* ── Exhibition Hub availability ────────────────────────────────────────
+ * Decides whether the public marketplace (browse, product detail, compare,
+ * cart and checkout) is open to everyone. When OFF, non-admin visitors land on
+ * the Coming Soon screen; admins always get through. Admin-editable like the
+ * other platform settings so the launch date isn't a deploy.
+ */
+export interface ExhibitionHubSetting {
+  /** True = the hub is open to all visitors. False = non-admins see Coming Soon. */
+  enabled: boolean;
+}
+
+/** Default: the hub starts locked (Coming Soon) until a super admin opens it. */
+export const EXHIBITION_HUB_DEFAULT: ExhibitionHubSetting = { enabled: false };
+
+/** Coerce whatever is in the jsonb column into a complete, safe object. */
+export function normalizeExhibitionHub(raw: unknown): ExhibitionHubSetting {
+  const v = (raw ?? {}) as Partial<ExhibitionHubSetting>;
+  return {
+    enabled: v.enabled === true,
   };
 }

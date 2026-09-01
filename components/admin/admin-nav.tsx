@@ -8,7 +8,7 @@ import {
   BarChart3, Users, ShieldCheck, Fingerprint, Building2, LogOut, X, Menu,
   ArrowLeft, Sun, Moon, PanelLeft, PanelLeftClose,
   ShoppingBag, Package, MessageSquare, Megaphone, Radio as CampaignIcon,
-  UsersRound, Mail, Wrench, ScrollText, LineChart, CalendarDays,
+  UsersRound, Mail, Wrench, ScrollText, LineChart, CalendarDays, Store,
   type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "@/components/theme";
@@ -80,6 +80,8 @@ const NAV: Group[] = [
     { label: "Audit Logs", href: "/admin/audit", icon: ScrollText },
     // Taking the public site offline is super-admin only (see setMaintenance).
     { label: "Maintenance Mode", href: "/admin/maintenance", icon: Wrench, superOnly: true },
+    // Opening/locking the marketplace is super-admin only (see setExhibitionHub).
+    { label: "Exhibition Hub", href: "/admin/platform/exhibition-hub", icon: Store, superOnly: true },
   ]},
 ];
 

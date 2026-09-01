@@ -5,7 +5,7 @@ import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { requireUserId } from "@/lib/server-user";
 import { requireAdmin, requireSuperAdmin } from "@/lib/authz";
-import { getMaintenance, getMailThroughput, getTickerSpeed } from "@/lib/services/platform-settings-read";
+import { getMaintenance, getMailThroughput, getTickerSpeed, getExhibitionHub } from "@/lib/services/platform-settings-read";
 import {
   MAINTENANCE_TAG,
   normalizeMaintenance,
@@ -16,6 +16,9 @@ import {
   TICKER_SPEED_TAG,
   normalizeTickerSpeed,
   type TickerSpeedSetting,
+  EXHIBITION_HUB_TAG,
+  normalizeExhibitionHub,
+  type ExhibitionHubSetting,
 } from "@/lib/services/platform-settings-shared";
 
 /* ── Maintenance mode: the write path ───────────────────────────────────
@@ -147,5 +150,38 @@ export async function setTickerSpeed(seconds: number): Promise<TickerSpeedSettin
 
   revalidateTag(TICKER_SPEED_TAG, { expire: 0 });
   revalidatePath("/");
+  return next;
+}
+
+/* ── Exhibition Hub: the write path ──────────────────────────────────────
+ * Super-admin-only, like maintenance and mail throughput: opening or locking
+ * the marketplace is a platform-wide, launcher-grade act.
+ */
+export async function setExhibitionHub(
+  input: Partial<ExhibitionHubSetting>,
+): Promise<ExhibitionHubSetting> {
+  const admin = await requireSuperAdmin();
+  const current = await getExhibitionHub();
+  const next = normalizeExhibitionHub({ ...current, ...input });
+
+  await db.execute(sql`
+    INSERT INTO platform_setting (key, value, updated_at, updated_by)
+    VALUES ('exhibition_hub', ${JSON.stringify(next)}::jsonb, now(), ${admin})
+    ON CONFLICT (key) DO UPDATE
+      SET value = ${JSON.stringify(next)}::jsonb, updated_at = now(), updated_by = ${admin}
+  `);
+
+  if (current.enabled !== next.enabled) {
+    await db
+      .execute(sql`
+        INSERT INTO audit_log (actor_user_id, action, target_type, target_id, detail)
+        VALUES (${admin}, ${next.enabled ? "exhibition_hub_open" : "exhibition_hub_lock"}, 'platform_setting', 'exhibition_hub', NULL)
+      `)
+      .catch(() => {});
+  }
+
+  // Purge immediately so flipping the switch changes the live site now.
+  revalidateTag(EXHIBITION_HUB_TAG, { expire: 0 });
+  revalidatePath("/exhibition-hub");
   return next;
 }
