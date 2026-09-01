@@ -25,8 +25,36 @@ export type AdminStats = {
   activeJobListings: number; liveCatalogProducts: number; activeAdCampaigns: number;
 };
 
+/** Zeroed stats — what the overview renders when the DB is briefly unreachable,
+ *  so a transient blip shows empty tiles instead of 500-ing the admin console. */
+export const ZERO_ADMIN_STATS: AdminStats = {
+  totalUsers: 0, professionals: 0, exhibitors: 0, buyers: 0, admins: 0,
+  jobs: 0, products: 0, applications: 0, quotes: 0,
+  pendingRecommendations: 0, openReports: 0, unverified: 0,
+  totalOrders: 0, totalRevenue: 0, totalCommission: 0,
+  pendingOrders: 0, completedOrders: 0,
+  newSignupsThisMonth: 0, newSignupsChangePct: 0,
+  pendingTier1: 0, pendingTier2: 0,
+  pendingAdReviews: 0, pendingAdProfiles: 0, pendingAdProducts: 0,
+  activeProfessionals: 0, activeExhibitors: 0,
+  activeJobListings: 0, liveCatalogProducts: 0, activeAdCampaigns: 0,
+};
+
 export async function getAdminStats(): Promise<AdminStats> {
+  // Auth check stays OUTSIDE the fail-soft: a non-admin caller must still get
+  // "Unauthorized", not a sanitised dashboard of zeros.
   await requireAdmin();
+  try {
+    return await computeAdminStats();
+  } catch (err) {
+    // DB unreachable (the EAI_AGAIN the overview hit) — render placeholder.
+    // The retry layer retries first; this is the last-resort backstop.
+    console.error("[admin] getAdminStats failed — serving zeroed stats:", (err as Error)?.message ?? err);
+    return ZERO_ADMIN_STATS;
+  }
+}
+
+async function computeAdminStats(): Promise<AdminStats> {
   const one = async (q: ReturnType<typeof sql>) => Number(((await db.execute(q)).rows as { n: number }[])[0]?.n ?? 0);
   const roles = (await db.execute(sql`SELECT role, count(*) AS n FROM "user" GROUP BY role`)).rows as { role: string | null; n: number }[];
   const byRole = (r: string) => Number(roles.find((x) => x.role === r)?.n ?? 0);

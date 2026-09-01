@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { Pool } from "pg";
 import fs from "node:fs";
 import path from "node:path";
+import { attachDbRetry } from "./db/retry";
 import { sendEmail, emailLayout, escapeHtml } from "./email/mailer";
 import { validatePassword } from "./password-policy";
 import { resolveSiteUrl, PRODUCTION_ORIGIN, stripTrailingSlash } from "@/lib/site-url";
@@ -38,6 +39,10 @@ const pool = new Pool({
   ssl: resolveSSL(),
   max: 5,
 });
+// The auth pool is the one in the /admin crash trace (`auth.api.getSession` →
+// DNS EAI_AGAIN). Retry the connect so a proxy-hostname blip doesn't error out
+// a session lookup — the gate every admin page and mutation goes through.
+attachDbRetry(pool, "auth");
 
 /**
  * Append an auth event to `audit_log`. Deliberately fire-and-forget: an audit
