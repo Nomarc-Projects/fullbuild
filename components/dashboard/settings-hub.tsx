@@ -8,7 +8,7 @@ import { useTheme } from "@/components/theme";
 import { useEffect } from "react";
 import {
   Pencil, ChevronRight, UserCog, Mail, Lock, Sparkles, FileText, Bell, ShieldCheck, Sun, Moon,
-  Trash2, ArrowRight, User, GraduationCap, type LucideIcon,
+  Trash2, User, GraduationCap, type LucideIcon,
 } from "lucide-react";
 import { saveProfile } from "@/lib/services/profile";
 import { cn } from "@/lib/utils";
@@ -18,17 +18,6 @@ type Row = { label: string; sub?: string; href: string; icon: LucideIcon; danger
 
 function initials(name: string) {
   return name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase() || "U";
-}
-
-function CompletionRing({ pct }: { pct: number }) {
-  const r = 16, c = 2 * Math.PI * r;
-  return (
-    <svg width="44" height="44" viewBox="0 0 44 44" className="flex-shrink-0 -rotate-90">
-      <circle cx="22" cy="22" r={r} fill="none" stroke="currentColor" strokeWidth="4" className="text-white/15" />
-      <circle cx="22" cy="22" r={r} fill="none" stroke="#ffd716" strokeWidth="4" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c - (pct / 100) * c} />
-      <text x="22" y="22" transform="rotate(90 22 22)" textAnchor="middle" dominantBaseline="central" className="fill-white font-bold" fontSize="11">{pct}%</text>
-    </svg>
-  );
 }
 
 function RowLink({ r }: { r: Row }) {
@@ -58,8 +47,8 @@ function Group({ title, rows }: { title: string; rows: Row[] }) {
   );
 }
 
-export function SettingsHub({ name, email, avatarUrl, completeness, availability, planLabel, role }: {
-  name: string; email: string; avatarUrl: string; completeness: number; availability: string; planLabel: string; role: "professional" | "exhibitor";
+export function SettingsHub({ name, email, avatarUrl, availability, planLabel, role }: {
+  name: string; email: string; avatarUrl: string; availability: string; planLabel: string; role: "professional" | "exhibitor";
 }) {
   const router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
@@ -145,18 +134,6 @@ export function SettingsHub({ name, email, avatarUrl, completeness, availability
           </button>
         </div>
       </div>
-
-      {/* completion banner */}
-      {completeness < 100 && (
-        <Link href="/dashboard/profile" className="group mt-4 flex items-center gap-4 rounded-2xl bg-[#1e1e1e] dark:bg-[#262626] p-4 sm:p-5">
-          <CompletionRing pct={completeness} />
-          <div className="min-w-0 flex-1">
-            <p className="text-[14px] font-bold text-white">Update your profile now!</p>
-            <p className="text-[12.5px] text-white/55 truncate">Complete your profile for better visibility and matches.</p>
-          </div>
-          <ArrowRight size={18} className="text-[#ffd716] flex-shrink-0 group-hover:translate-x-0.5 transition-transform" />
-        </Link>
-      )}
 
       {/* grouped rows */}
       <div className="mt-6 space-y-6">

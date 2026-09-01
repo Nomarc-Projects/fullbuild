@@ -13,10 +13,9 @@ const TABS = [
 type Key = (typeof TABS)[number]["key"];
 
 /** Company section as client-side tabs — instant switch, preserved state, no reload. */
-export function CompanyTabs({ initial = "profile", company, certifications = [], missing = [] }: { initial?: Key; company?: CompanyData; certifications?: CompanyCert[]; missing?: string[] }) {
+export function CompanyTabs({ initial = "profile", company, certifications = [] }: { initial?: Key; company?: CompanyData; certifications?: CompanyCert[] }) {
   const [tab, setTab] = useState<Key>(initial);
   const active = TABS.find((t) => t.key === tab)!;
-  const pct = company?.completeness ?? 0;
   const displayName = company?.name || "Your company";
 
   const select = (k: Key) => {
@@ -41,19 +40,6 @@ export function CompanyTabs({ initial = "profile", company, certifications = [],
             </h1>
             <p className="text-sm text-[#9a9a9a] mt-0.5">{active.sub}</p>
           </div>
-        </div>
-
-        <div className="mt-8 rounded-xl border border-[#ececec] dark:border-white/10 bg-white dark:bg-[#1e1e1e] px-6 py-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <p className="text-[15px] font-bold text-[#1e1e1e] dark:text-white">Your company is {pct}% complete{pct === 100 ? "! 🎉" : "!"}</p>
-              <p className="text-[13px] text-[#9a9a9a] mt-0.5">
-                {missing.length > 0 ? <>Add: {missing.slice(0, 4).join(", ")}{missing.length > 4 ? "…" : ""}</> : "Your company profile is complete — you're discoverable."}
-              </p>
-            </div>
-            {pct < 100 && <button onClick={() => select("profile")} className="self-start sm:self-auto whitespace-nowrap px-5 py-2.5 rounded-lg bg-[#ffd716] text-[#1e1e1e] text-sm font-semibold hover:bg-[#e6c114] transition-colors">Complete profile</button>}
-          </div>
-          <div className="mt-3 h-1.5 rounded-full bg-[#f0f0f0] dark:bg-white/10 overflow-hidden"><div className="h-full rounded-full bg-[#ffd716] transition-all duration-500" style={{ width: `${pct}%` }} /></div>
         </div>
 
         <div className="mt-10 grid grid-cols-1 md:grid-cols-[230px_1fr] gap-10">

@@ -57,7 +57,7 @@ export async function getProfessionals(): Promise<ProCard[]> {
            COALESCE((SELECT round(avg(rating)::numeric,1) FROM review WHERE subject_type='professional' AND subject_id=u.id),0) AS rating_avg,
            COALESCE((SELECT count(*) FROM review WHERE subject_type='professional' AND subject_id=u.id),0) AS rating_count
     FROM profile p JOIN "user" u ON u.id = p.user_id
-    ORDER BY COALESCE(p.verified,false) DESC, COALESCE(p.success_score,0) DESC, u.name ASC
+    ORDER BY COALESCE(p.verified,false) DESC, u.name ASC
   `);
   const rows = res.rows as Record<string, unknown>[];
   if (rows.length === 0) return [];

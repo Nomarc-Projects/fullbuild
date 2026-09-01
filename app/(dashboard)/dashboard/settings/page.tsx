@@ -42,7 +42,6 @@ export default async function SettingsPage() {
           name={d.name}
           email={(account as { email: string }).email}
           avatarUrl={d.avatarUrl}
-          completeness={d.completeness}
           availability={d.availability}
           planLabel={PLAN_LABEL[plan]}
           role={role}

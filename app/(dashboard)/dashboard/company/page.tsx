@@ -4,6 +4,6 @@ import { getMyCompany } from "@/lib/services/company";
 export default async function CompanyPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const { tab } = await searchParams;
   const initial = tab === "credentials" ? "credentials" : "profile";
-  const { data, certifications, missing } = await getMyCompany();
-  return <CompanyTabs initial={initial} company={data} certifications={certifications} missing={missing} />;
+  const { data, certifications } = await getMyCompany();
+  return <CompanyTabs initial={initial} company={data} certifications={certifications} />;
 }

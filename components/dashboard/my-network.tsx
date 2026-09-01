@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Users, BadgeCheck, MapPin, MessageSquare, BookmarkCheck, UserPlus, UserCheck, Star, Send } from "lucide-react";
+import { Search, Users, BadgeCheck, MapPin, MessageSquare, BookmarkCheck, UserPlus, UserCheck, Send } from "lucide-react";
 import { toggleSaved } from "@/lib/services/saved";
 import { followUser, unfollowUser, type NetPerson } from "@/lib/services/network";
 import type { ProCard } from "@/lib/services/directory";
@@ -56,8 +56,8 @@ function FollowCard({ person, onMessage }: { person: NetPerson; onMessage: () =>
 
 const FALLBACK = r2Url("site/photo-1494790108377-be9c29b29330.jpg");
 
-function NetCard({ id, name, avatarUrl, headline, location, verified, rating, savedInitially, onMessage }: {
-  id: string; name: string; avatarUrl: string; headline: string; location?: string; verified?: boolean; rating?: number; savedInitially: boolean; onMessage: () => void;
+function NetCard({ id, name, avatarUrl, headline, location, verified, savedInitially, onMessage }: {
+  id: string; name: string; avatarUrl: string; headline: string; location?: string; verified?: boolean; savedInitially: boolean; onMessage: () => void;
 }) {
   const [saved, setSaved] = useState(savedInitially);
   async function toggle() {
@@ -76,7 +76,6 @@ function NetCard({ id, name, avatarUrl, headline, location, verified, rating, sa
           {headline && <p className="text-[12px] text-[#9a9a9a] truncate">{headline}</p>}
           <div className="mt-0.5 flex items-center gap-2 text-[11px] text-[#9a9a9a]">
             {location && <span className="flex items-center gap-1 truncate"><MapPin size={11} /> {location}</span>}
-            {typeof rating === "number" && rating > 0 && <span className="flex items-center gap-0.5"><Star size={11} className="fill-[#ffd716] text-[#ffd716]" /> {rating.toFixed(1)}</span>}
           </div>
         </div>
       </div>
@@ -94,11 +93,11 @@ export function MyNetwork({ saved, contacted, following = [], followers = [], em
 
   // merge for "all" (dedupe by id, saved entries take precedence for richer data)
   const merged = useMemo(() => {
-    const map = new Map<string, { id: string; name: string; avatarUrl: string; headline: string; location?: string; verified?: boolean; rating?: number; saved: boolean; contacted: boolean }>();
+    const map = new Map<string, { id: string; name: string; avatarUrl: string; headline: string; location?: string; verified?: boolean; saved: boolean; contacted: boolean }>();
     for (const c of contacted) map.set(c.id, { ...c, saved: false, contacted: true });
     for (const p of saved) {
       const prev = map.get(p.id);
-      map.set(p.id, { id: p.id, name: p.name, avatarUrl: p.avatarUrl, headline: p.headline, location: p.location, verified: p.verified, rating: p.ratingAvg, saved: true, contacted: prev?.contacted ?? false });
+      map.set(p.id, { id: p.id, name: p.name, avatarUrl: p.avatarUrl, headline: p.headline, location: p.location, verified: p.verified, saved: true, contacted: prev?.contacted ?? false });
     }
     return [...map.values()];
   }, [saved, contacted]);
@@ -268,7 +267,7 @@ export function SavedProfessionals({ people }: { people: ProCard[] }) {
               <NetCard
                 key={p.id}
                 id={p.id} name={p.name} avatarUrl={p.avatarUrl} headline={p.headline}
-                location={p.location} verified={p.verified} rating={p.ratingAvg}
+                location={p.location} verified={p.verified}
                 savedInitially onMessage={() => setChatWith(p)}
               />
             ))}

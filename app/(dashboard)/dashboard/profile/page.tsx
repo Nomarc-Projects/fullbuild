@@ -5,7 +5,6 @@ import { getMyProfile } from "@/lib/services/profile";
 import { getQualifications, getEducationList } from "@/lib/services/qualifications";
 import { getKycState } from "@/lib/services/kyc";
 import { getEmployerProfile } from "@/lib/services/employer";
-import { getOnboardingChecklist } from "@/lib/services/onboarding";
 import { getViewer } from "@/lib/viewer-server";
 
 /**
@@ -30,27 +29,28 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   }
 
   if (activeRole === "employer") {
-    const [employer, checklist, kycState] = await Promise.all([
+    const [employer, kycState] = await Promise.all([
       getEmployerProfile().catch(() => null),
-      getOnboardingChecklist().catch(() => null),
       getKycState().catch(() => undefined),
     ]);
     if (!employer) redirect("/dashboard");
-    return <EmployerProfileShell employer={employer} checklist={checklist} kycState={kycState} initialTab={tab === "verification" ? "verification" : "profile"} />;
+    return <EmployerProfileShell employer={employer} kycState={kycState} initialTab={tab === "verification" ? "verification" : "profile"} />;
   }
 
   const initial = tab === "qualifications" || tab === "education" || tab === "verification" ? tab : "public";
-  const [{ data, missing }, quals, education, kycState] = await Promise.all([
+  const [data, quals, education, kycState] = await Promise.all([
     // Logged, not swallowed silently: this exact `.catch` is what turned a hard
     // "column does not exist" error into a blank form that looked like a saving
     // bug, and kept it invisible for weeks.
-    getMyProfile().catch((e) => {
-      console.error("[profile] getMyProfile failed:", e);
-      return { data: undefined, missing: [] };
-    }),
+    getMyProfile()
+      .then((r) => r.data)
+      .catch((e) => {
+        console.error("[profile] getMyProfile failed:", e);
+        return undefined;
+      }),
     getQualifications().catch(() => undefined),
     getEducationList().catch(() => undefined),
     getKycState().catch(() => undefined),
   ]);
-  return <ProfileTabs initial={initial} profile={data} missing={missing} quals={quals} education={education} kycState={kycState} />;
+  return <ProfileTabs initial={initial} profile={data} quals={quals} education={education} kycState={kycState} />;
 }

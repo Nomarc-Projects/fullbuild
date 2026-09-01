@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect, useCallback } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -11,8 +11,6 @@ import { SelectMenu } from "@/components/ui/select-menu";
 import type { Role } from "@/lib/use-dashboard-role";
 import { getProfessionalDetail, recommendProfessional, type ProCard, type ProDetail } from "@/lib/services/directory";
 import { inviteToApply } from "@/lib/services/jobs";
-import { getReviews, leaveReview, type ReviewRow, type RatingSummary } from "@/lib/services/reviews";
-import { Stars, StarInput } from "@/components/ui/stars";
 import { SaveToList } from "@/components/dashboard/save-to-list";
 import { Pagination } from "@/components/ui/pagination";
 import { NomarcAvatar } from "@/components/ui/avatar";
@@ -186,63 +184,6 @@ function InviteModal({ open, onClose, detail, jobs }: { open: boolean; onClose: 
   );
 }
 
-/* ── reviews ── */
-function ReviewsSection({ userId }: { userId: string }) {
-  const [summary, setSummary] = useState<RatingSummary>({ avg: 0, count: 0 });
-  const [reviews, setReviews] = useState<ReviewRow[]>([]);
-  const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState("");
-  const [open, setOpen] = useState(false);
-  const [pending, start] = useTransition();
-
-  const load = useCallback(() => { getReviews("professional", userId).then((r) => { setSummary(r.summary); setReviews(r.reviews); const mine = r.reviews.find((x) => x.mine); if (mine) { setRating(mine.rating); setComment(mine.comment ?? ""); } }).catch(() => {}); }, [userId]);
-  useEffect(() => { load(); }, [load]);
-
-  function submit() {
-    if (!rating) { toast.error("Pick a star rating"); return; }
-    start(async () => {
-      try { await leaveReview({ subjectType: "professional", subjectId: userId, rating, comment }); toast.success("Review submitted"); setOpen(false); load(); }
-      catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't submit review"); }
-    });
-  }
-
-  return (
-    <div className="mt-5 pt-5 border-t border-[#f0f0f0] dark:border-white/10">
-      <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-bold text-[#1e1e1e] dark:text-white">Reviews</h3>
-          {summary.count > 0 && <span className="flex items-center gap-1.5 text-[13px] text-[#9a9a9a]"><Stars value={summary.avg} /> {summary.avg} ({summary.count})</span>}
-        </div>
-        <button onClick={() => setOpen((o) => !o)} className="text-[13px] font-medium px-3 py-1.5 rounded-lg border border-[#e3e3e3] dark:border-white/15 text-[#1e1e1e] dark:text-white hover:bg-[#f7f7f7] dark:hover:bg-white/5 transition-colors">{reviews.some((r) => r.mine) ? "Edit your review" : "Leave a review"}</button>
-      </div>
-
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-            <div className="rounded-xl border border-[#ececec] dark:border-white/10 p-4 mb-4">
-              <StarInput value={rating} onChange={setRating} />
-              <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={3} className="mt-3 w-full rounded-lg border border-[#e3e3e3] dark:border-white/15 bg-white dark:bg-transparent px-3.5 py-2.5 text-sm text-[#1e1e1e] dark:text-white placeholder:text-[#b3b3b3] focus:outline-none focus:border-[#ffd716]" placeholder="Share your experience working with them…" />
-              <div className="flex justify-end mt-3"><button onClick={submit} disabled={pending} className="px-5 py-2 rounded-lg bg-[#ffd716] text-[#1e1e1e] text-[13px] font-semibold hover:bg-[#e6c114] transition-colors disabled:opacity-50">{pending ? "Submitting…" : "Submit review"}</button></div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {reviews.length === 0 ? (
-        <p className="text-[13px] text-[#9a9a9a]">No reviews yet.</p>
-      ) : reviews.map((r) => (
-        <div key={r.id} className="flex items-start gap-3 mb-4">
-          <NomarcAvatar src={r.avatarUrl} name={r.name} size="sm" className="h-9 w-9 text-[11px]" />
-          <div>
-            <p className="text-sm flex items-center gap-2"><span className="font-semibold text-[#1e1e1e] dark:text-white">{r.name}</span><Stars value={r.rating} size={12} /><span className="text-[#9a9a9a] text-[12px]">{r.date}</span></p>
-            {r.comment && <p className="mt-1 text-[13px] leading-relaxed text-[#6b6b6b] dark:text-white/60">{r.comment}</p>}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 /* ── detail view ── */
 function DetailView({ detail, loading, canInvite, onBack, onRecommend, onMessage, onInvite }: { detail: ProDetail | null; loading: boolean; canInvite: boolean; onBack: () => void; onRecommend: () => void; onMessage: () => void; onInvite: () => void }) {
   return (
@@ -317,8 +258,6 @@ function DetailView({ detail, loading, canInvite, onBack, onRecommend, onMessage
               </div>
             ))}
           </div>
-
-          <ReviewsSection userId={detail.id} />
         </div>
       )}
     </div>
@@ -331,7 +270,7 @@ function Row({ a, b }: { a: string; b: string }) {
   return <div className="flex items-center justify-between text-[13px] py-0.5 gap-3"><span className="text-[#1e1e1e] dark:text-white/80">{a}</span><span className="text-[#9a9a9a] flex-shrink-0">{b}</span></div>;
 }
 
-const PRO_SORT_OPTIONS = ["Best match", "Top rated", "Most experience", "Name A–Z"];
+const PRO_SORT_OPTIONS = ["Best match", "Most experience", "Name A–Z"];
 const PRO_PER_PAGE_OPTIONS = [20, 50, 100, 200, 500, 1000];
 type ProView = "list" | "g2" | "g3" | "g4";
 
@@ -410,8 +349,7 @@ export function FindProfessionals({ role, pros = [], myOpenJobs = [], online = {
     if (expLvl.length && !matchExp(p.years)) return false;
     return true;
   });
-  if (sortBy === "Top rated") results = [...results].sort((a, b) => b.ratingAvg - a.ratingAvg);
-  else if (sortBy === "Most experience") results = [...results].sort((a, b) => b.years - a.years);
+  if (sortBy === "Most experience") results = [...results].sort((a, b) => b.years - a.years);
   else if (sortBy === "Name A–Z") results = [...results].sort((a, b) => a.name.localeCompare(b.name));
   const activeCount = Object.values(sel).reduce((n, a) => n + a.length, 0) + (q ? 1 : 0);
 
@@ -552,7 +490,7 @@ export function FindProfessionals({ role, pros = [], myOpenJobs = [], online = {
                             <div className="flex items-start gap-3 flex-1 min-w-0">
                               <NomarcAvatar src={p.avatarUrl} name={p.name} className="h-11 w-11 flex-shrink-0 text-[13px]" />
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5 flex-wrap">{meta}{p.ratingCount > 0 && <span className="inline-flex items-center gap-1 text-[11px] text-[#9a9a9a]"><Stars value={p.ratingAvg} size={11} /> {p.ratingAvg}</span>}</div>
+                                <div className="flex items-center gap-1.5 flex-wrap">{meta}</div>
                                 <div className="mt-2 flex flex-wrap gap-1.5">{p.skills.map((s) => <Tag key={s}>{s}</Tag>)}</div>
                               </div>
                             </div>

@@ -1,16 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { BadgeCheck, ThumbsUp, User, Award, GraduationCap, ShieldCheck, ChevronRight, type LucideIcon } from "lucide-react";
+import { BadgeCheck, ThumbsUp, User, Award, GraduationCap, ShieldCheck, type LucideIcon } from "lucide-react";
 import { PublicProfileForm, DEFAULT_AVATAR } from "@/app/(marketing)/profile/public-profile-form";
 import { QualificationsContent } from "@/app/(marketing)/profile/qualifications/qualifications-content";
 import { EducationContent } from "@/app/(marketing)/profile/education/education-content";
 import { KycView, VerificationLevelCard } from "@/components/dashboard/kyc-view";
 import { StatusBadge } from "@/components/dashboard/kit/status-badge";
-import { cn } from "@/lib/utils";
 import type { ProfileData } from "@/lib/services/profile";
-import type { ChecklistItem } from "@/lib/services/profile-checklist";
 import type { Experience, Cert, Edu } from "@/lib/services/qualifications";
 import type { KycState } from "@/lib/services/kyc";
 
@@ -33,12 +30,9 @@ type Key = (typeof TABS)[number]["key"];
  */
 // Stable identity — an inline `= []` default allocates a new array every render
 // and re-triggers child sync-effects (see education-content/qualifications).
-const NO_MISSING: ChecklistItem[] = [];
 const NO_EDU: Edu[] = [];
 
-export function ProfileTabs({ initial = "public", profile, missing = NO_MISSING, quals, education = NO_EDU, kycState }: { initial?: Key; profile?: ProfileData; missing?: ChecklistItem[]; quals?: Quals; education?: Edu[]; kycState?: KycState }) {
-  const router = useRouter();
-
+export function ProfileTabs({ initial = "public", profile, quals, education = NO_EDU, kycState }: { initial?: Key; profile?: ProfileData; quals?: Quals; education?: Edu[]; kycState?: KycState }) {
   /**
    * A member only counts as a professional — and so only then sees the
    * Qualifications, Education History and Verification tabs — once they have
@@ -57,37 +51,15 @@ export function ProfileTabs({ initial = "public", profile, missing = NO_MISSING,
   // — no deep link should strand them on a hidden tab.
   const [tab, setTab] = useState<Key>(!isProfessional ? "public" : initial);
   const active = TABS.find((t) => t.key === tab)!;
-  const pct = profile?.completeness ?? 0;
   const displayName = profile?.name || "Your profile";
 
   // The rail shows the professional tabs only to professionals.
   const visibleTabs = isProfessional ? TABS : TABS.filter((t) => t.key === "public");
 
-  // The first thing still outstanding, so "Complete profile" goes somewhere
-  // useful instead of always landing on the Public Profile tab even when what is
-  // missing lives under Qualifications or Education.
-  const firstOutstanding = missing[0];
-
   const select = (k: Key) => {
     setTab(k);
     // keep the URL in sync without a navigation/remount
     window.history.replaceState(null, "", k === "public" ? "/dashboard/profile" : `/dashboard/profile?tab=${k}`);
-  };
-
-  /**
-   * Jump to whatever fixes a checklist item.
-   *
-   * Items on a profile tab switch in place, because these tabs are client state
-   * and a real navigation would remount all three forms and lose anything typed.
-   * Anything off-page (publishing a service) is a genuine navigation.
-   */
-  const goToItem = (item: ChecklistItem) => {
-    if (item.tab) {
-      select(item.tab as Key);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      return;
-    }
-    router.push(item.href);
   };
 
   return (
@@ -108,48 +80,11 @@ export function ProfileTabs({ initial = "public", profile, missing = NO_MISSING,
           </div>
         </div>
 
-        {/* Completeness + verification level — professional-only, two equal, responsive cards */}
-        {isProfessional && (
-        <div className={cn("mt-8 grid grid-cols-1 gap-4 items-stretch", kycState && "lg:grid-cols-2")}>
-          <div className="rounded-xl border border-[#ececec] dark:border-white/10 bg-white dark:bg-[#1e1e1e] px-6 py-5 flex flex-col justify-center">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-[15px] font-bold text-[#1e1e1e] dark:text-white">Your profile is {pct}% complete{pct === 100 ? "! 🎉" : "!"}</p>
-                {missing.length === 0 ? (
-                  <p className="text-[13px] text-[#9a9a9a] mt-0.5">Your profile is complete, so you&rsquo;re discoverable.</p>
-                ) : (
-                  <>
-                    <p className="text-[13px] text-[#9a9a9a] mt-0.5">Still to do:</p>
-                    {/* Every outstanding item, each a link to the tab that fixes
-                        it. This was a comma-joined string truncated to four with
-                        an ellipsis, so you could neither see what was left nor
-                        act on any of it. */}
-                    <ul className="mt-1.5 flex flex-wrap gap-x-2 gap-y-1.5">
-                      {missing.map((m) => (
-                        <li key={m.key}>
-                          <button
-                            type="button"
-                            onClick={() => goToItem(m)}
-                            className="inline-flex items-center gap-1 rounded-full border border-[#e8e8e8] dark:border-white/12 px-2.5 py-1 text-[12px] font-medium text-[#4a4a4a] dark:text-white/70 hover:border-[#ffd716] hover:text-[#1e1e1e] dark:hover:text-white transition-colors"
-                          >
-                            {m.label}
-                            {m.optional && <span className="text-[#9a9a9a]">(optional)</span>}
-                            <ChevronRight size={12} className="text-[#9a9a9a]" />
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-              </div>
-              {pct < 100 && firstOutstanding && (
-                <button onClick={() => goToItem(firstOutstanding)} className="self-start sm:self-auto whitespace-nowrap px-5 py-2.5 rounded-lg bg-[#ffd716] text-[#1e1e1e] text-sm font-semibold hover:bg-[#e6c114] transition-colors">Complete profile</button>
-              )}
-            </div>
-            <div className="mt-3 h-1.5 rounded-full bg-[#f0f0f0] dark:bg-white/10 overflow-hidden"><div className="h-full rounded-full bg-[#ffd716] transition-all duration-500" style={{ width: `${pct}%` }} /></div>
+        {/* Verification level — professional-only */}
+        {isProfessional && kycState && (
+          <div className="mt-8">
+            <VerificationLevelCard kycState={kycState} />
           </div>
-          {kycState && <VerificationLevelCard kycState={kycState} />}
-        </div>
         )}
 
         <div className="mt-10 grid grid-cols-1 md:grid-cols-[200px_1fr] gap-10">

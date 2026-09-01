@@ -14,15 +14,14 @@ import { Modal, GhostButton, PrimaryButton } from "@/components/ui/modal";
 import { KebabMenu } from "@/components/dashboard/kit";
 import {
   ProfileIdentityCard, IdentitySection, ChipList, DashboardTabs,
-  KpiTileRow, ProfileCompletionCard, ActivityFeed, StatusBadge, EmptyState,
-  type Stat, type TabItem, type ActivityItem, type CompletionStep,
+  KpiTileRow, ActivityFeed, StatusBadge, EmptyState,
+  type Stat, type TabItem, type ActivityItem,
 } from "@/components/dashboard/kit";
 import { RecommendationsPanel } from "@/components/dashboard/shared/recommendations-panel";
 import { AdsBoardPanel } from "@/components/dashboard/shared/ads-board-panel";
 import { TourWizardButton } from "@/components/tour/tour-wizard-button";
 import { getMyProfile, type ProfileData } from "@/lib/services/profile";
 import { getQualifications, type Experience, type Cert } from "@/lib/services/qualifications";
-import { getOnboardingChecklist, type OnboardingChecklist } from "@/lib/services/onboarding";
 import { listMyProjects, deleteProject, type PortfolioProject } from "@/lib/services/projects";
 import { getMyApplications } from "@/lib/services/applications";
 import { getSavedIds } from "@/lib/services/saved";
@@ -367,7 +366,6 @@ export function ProfessionalHome() {
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [notifications, setNotifications] = useState<NotificationRow[]>([]);
   const [quals, setQuals] = useState<Awaited<ReturnType<typeof getQualifications>> | null>(null);
-  const [onboarding, setOnboarding] = useState<OnboardingChecklist | null>(null);
   const [kpi, setKpi] = useState<{ apps: number; inReview: number; saved: number; unread: number }>({ apps: 0, inReview: 0, saved: 0, unread: 0 });
 
   // Real portfolio rows. Published in the Projects tab, drafts behind the Drafts
@@ -394,7 +392,6 @@ export function ProfessionalHome() {
     getMyProfile().then((r) => setProfile(r.data)).catch(() => {}).finally(() => setProfileLoaded(true));
     getMyNotifications().then((n) => setNotifications(n.slice(0, 6))).catch(() => {});
     getQualifications().then(setQuals).catch(() => {});
-    getOnboardingChecklist().then(setOnboarding).catch(() => {});
     listMyProjects().then(setPortfolio).catch(() => {});
     (async () => {
       try {
@@ -412,18 +409,12 @@ export function ProfessionalHome() {
   const firstName = ((mounted ? profile?.name || u?.name : undefined) ?? "there").split(" ")[0];
 
   // No profile-view tracking exists in the schema, so the old hardcoded
-  // "248 views / +1.5%" tile was fabricated — replaced with real completeness.
+  // "248 views / +1.5%" tile was fabricated — no fabricated or rating tiles.
   const stats: Stat[] = useMemo(() => [
-    { label: "Profile Complete", value: `${profile?.completeness ?? 0}%`, hint: (profile?.completeness ?? 0) >= 100 ? "All set" : "Finish your profile" },
     { label: "Applications", value: kpi.apps, hint: kpi.inReview > 0 ? `${kpi.inReview} in review` : "Track your submissions" },
     { label: "Saved Jobs", value: kpi.saved, hint: kpi.saved > 0 ? "In your list" : "Save jobs to compare" },
     { label: "Unread Messages", value: kpi.unread, hint: kpi.unread > 0 ? `${kpi.unread} new` : "All caught up" },
-  ], [kpi, profile?.completeness]);
-
-  const completionSteps: CompletionStep[] = useMemo(
-    () => (onboarding?.items ?? []).map((i) => ({ label: i.label, done: i.done, href: i.href })),
-    [onboarding],
-  );
+  ], [kpi]);
 
   // Real activity, from the user's own notifications. (Previously a hardcoded
   // list — "viewed by Cubic Studio", "Tunde Adeoye", etc. — which showed
@@ -546,9 +537,6 @@ export function ProfessionalHome() {
               {tab === "overview" && (
                 <div className="space-y-5">
                   <KpiTileRow stats={stats} />
-                  {onboarding && onboarding.percent < 100 && (
-                    <ProfileCompletionCard percent={onboarding.percent} steps={completionSteps} completeHref="/dashboard/profile" />
-                  )}
                   <ActivityFeed recent={activity} upcoming={upcoming} title="Activity" />
                 </div>
               )}

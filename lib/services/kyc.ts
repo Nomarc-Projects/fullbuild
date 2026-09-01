@@ -93,7 +93,7 @@ async function computeKycStateForRole(uid: string, role: string): Promise<KycSta
 
   const tierList: TierState[] = [1, 2, 3].map((tier) => {
     const td = allRows.filter((r) => r.tier === tier);
-    let status: TierState["status"] = tier === 1 ? "not_started" : "locked";
+    let status: TierState["status"] = "not_started";
     if (td.length > 0) {
       const allApproved = td.every((d) => d.status === "approved");
       const anyRejected = td.some((d) => d.status === "rejected");
@@ -108,15 +108,6 @@ async function computeKycStateForRole(uid: string, role: string): Promise<KycSta
 
   // Tier 1 = the profile details its own card asks for.
   if (await isTier1Complete(uid, role)) tierList[0].status = "approved";
-
-  // Unlock tier 2 if tier 1 approved
-  if (tierList[0].status === "approved" && tierList[1].status === "locked") {
-    tierList[1].status = "not_started";
-  }
-  // Unlock tier 3 if tier 2 approved
-  if (tierList[1].status === "approved" && tierList[2].status === "locked") {
-    tierList[2].status = "not_started";
-  }
 
   const overallTier = tierList.filter((t) => t.status === "approved").length;
 

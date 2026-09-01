@@ -8,7 +8,6 @@ export * from "./stat-tiles";
 export * from "./dashboard-tabs";
 export * from "./empty-state";
 export * from "./locked-state";
-export * from "./profile-completion-card";
 export * from "./activity-feed";
 export * from "./profile-identity-card";
 export * from "./kebab-menu";

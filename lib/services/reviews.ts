@@ -52,12 +52,5 @@ export async function leaveReview(input: { subjectType: "professional" | "compan
       await notify(input.subjectId, { type: "recommendation", title: "You received a new review", body: `${rating}★ — view it on your profile.`, href: "/dashboard/profile" });
     }
   }
-  // refresh the professional's success score from their average rating (0–100)
-  if (input.subjectType === "professional") {
-    await db.execute(sql`
-      UPDATE profile SET success_score = COALESCE((SELECT round(avg(rating) * 20)::int FROM review WHERE subject_type='professional' AND subject_id=${input.subjectId}), success_score)
-      WHERE user_id = ${input.subjectId}
-    `);
-  }
   revalidatePath("/dashboard/find-professionals");
 }

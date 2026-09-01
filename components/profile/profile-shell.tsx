@@ -37,17 +37,6 @@ export function ProfileShell({
           </div>
         </div>
 
-        {/* completion banner */}
-        <div className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-[#e8e8e8] dark:border-white/10 bg-white dark:bg-[#1e1e1e] px-5 py-4">
-          <div>
-            <p className="text-[14px] font-bold text-[#1e1e1e] dark:text-white">Your profile is 90% complete!</p>
-            <p className="text-[13px] text-[#9a9a9a] mt-0.5">Fill in all sections to unlock new opportunities and get discovered faster!</p>
-          </div>
-          <button className="self-start sm:self-auto whitespace-nowrap px-4 py-2 rounded-lg bg-[#ffd716] text-[#1e1e1e] text-[13px] font-semibold hover:bg-[#e6c114] transition-colors flex-shrink-0">
-            Complete profile
-          </button>
-        </div>
-
         {/* sub-nav + content */}
         <div className="mt-7 flex flex-col md:flex-row gap-6">
 

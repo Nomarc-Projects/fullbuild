@@ -8,7 +8,6 @@ import { requireUserId } from "@/lib/server-user";
 import { notify } from "@/lib/notify-internal";
 import { getViewer } from "@/lib/viewer-server";
 import { can } from "@/lib/entitlements";
-import { meetsTier1 } from "@/lib/services/profile-checklist";
 
 export type ApplicationRow = { id: string; jobId: string; role: string; company: string; date: string; status: string };
 
@@ -30,7 +29,6 @@ export async function submitApplication(input: {
   if (!input.draft) {
     const viewer = await getViewer();
     if (!can(viewer, "jobBoard")) throw new Error("Join the professional track to apply for jobs.");
-    if (!(await meetsTier1(uid))) throw new Error("Complete your Tier 1 profile before applying.");
   }
 
   await db.insert(application).values({

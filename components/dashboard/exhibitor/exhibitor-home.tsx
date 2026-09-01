@@ -26,8 +26,8 @@ import { AdsBoardPanel } from "@/components/dashboard/shared/ads-board-panel";
 import { TourWizardButton } from "@/components/tour/tour-wizard-button";
 import {
   ProfileIdentityCard, IdentitySection, ChipList,
-  DashboardTabs, KpiTileRow, ProfileCompletionCard, ActivityFeed, EmptyState,
-  type Stat, type ActivityItem, type CompletionStep,
+  DashboardTabs, KpiTileRow, ActivityFeed, EmptyState,
+  type Stat, type ActivityItem,
 } from "@/components/dashboard/kit";
 import { cn } from "@/lib/utils";
 
@@ -304,13 +304,6 @@ export function ExhibitorHome() {
   const location = company?.headquarters || "Nigeria";
   const subtitle = [company?.industry, company?.headquarters].filter(Boolean).join(" • ") || "Set up your company profile";
 
-  const completionSteps: CompletionStep[] = [
-    { label: "Add company details and headquarters", done: !!company?.headquarters, href: "/dashboard/company" },
-    { label: "Upload primary product catalog", done: products.length > 0, href: "/dashboard/add-product" },
-    { label: "Request a recommendation from a past client", done: false },
-    { label: "Earn verification badge", done: !!company?.verified, href: "/dashboard/profile?tab=verification" },
-  ];
-
   function removeProduct(p: MyProduct) {
     const prev = products;
     setProducts((l) => l.filter((x) => x.id !== p.id));
@@ -423,7 +416,6 @@ export function ExhibitorHome() {
                 {tab === "overview" && (
                   <div className="space-y-4">
                     <KpiTileRow stats={stats} />
-                    <ProfileCompletionCard percent={company?.completeness ?? 0} steps={completionSteps} completeHref="/dashboard/company" />
                     <ActivityFeed recent={activity} upcoming={upcoming} title="Activity" />
                   </div>
                 )}
