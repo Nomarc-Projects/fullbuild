@@ -16,3 +16,7 @@ tsconfig.tsbuildinfo
 # env backups
 .env.bak
 .env.*.bak
+# local/generated env (keep .env.example tracked)
+.env.local
+.env.local.*
+.env.vercel*
