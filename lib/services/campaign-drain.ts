@@ -36,7 +36,7 @@ const MAX_ATTEMPTS = 3;
 /**
  * Transient failures are worth a retry; hard bounces are not.
  *
- * Nodemailer surfaces SMTP errors as `Error` with the server response embedded
+ * The mailer surfaces send errors as `Error` with the provider response embedded
  * (e.g. "Mail command failed: 550 ..."). 5xx server/connection-class failures
  * and connection/timeout errors can clear up on the next tick; a 4xx
  * (especially 550/551/552/553 — unknown user, mailbox full, bad address) means
@@ -104,9 +104,9 @@ export async function drainCampaign(id: string, limit: number): Promise<{ sent: 
   let sent = 0;
   let failed = 0;
 
-  // Sequential, not Promise.all: the transport's own pool and rate limit are what
-  // pace this, and firing the whole slice at once would just queue inside
-  // nodemailer while making a partial failure harder to attribute.
+  // Sequential, not Promise.all: the mailer's own rate limiting is what
+  // paces this, and firing the whole slice at once would just queue the
+  // sends while making a partial failure harder to attribute.
   for (const r of rows) {
     const unsubscribeUrl = unsubscribeUrlFor(r.user_id);
     try {

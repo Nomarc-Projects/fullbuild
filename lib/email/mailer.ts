@@ -2,116 +2,45 @@
 // lib/auth.ts, which is also loaded by Node scripts (e.g. the legacy importer)
 // outside Next's bundler where the "server-only" shim can't resolve. It is only
 // ever imported by server code, so the guard is unnecessary here.
-import nodemailer from "nodemailer";
 import { Resend } from "resend";
 import { resolveSiteUrl } from "@/lib/site-url";
 
 /**
- * Transactional email via Resend (default when RESEND_API_KEY is set), falling
- * back to the Nomarc SMTP server (site4now) otherwise.
+ * Transactional email via Resend.
  *
  * Config comes from env (Doppler → Render/Vercel), never hardcoded:
- *   RESEND_API_KEY   — Resend API key; enables the Resend provider
- *   RESEND_FROM      — optional sender override; defaults to EMAIL_FROM
- *   SMTP_HOST, SMTP_PORT (465), SMTP_SECURE ("true"), SMTP_USER, SMTP_PASS,
- *   EMAIL_FROM       e.g.  "Nomarc <info@nomarcprojects.com>"
+ *   RESEND_API_KEY   — Resend API key (required to send)
+ *   RESEND_FROM      — sender, e.g. "Nomarc <info@nomarcprojects.com>";
+ *                      defaults to EMAIL_FROM if unset
  *
- * Resend is preferred: it's what the product is moving to and needs no SMTP
- * credentials. If neither Resend nor SMTP is configured (e.g. a preview env),
- * we log and no-op instead of throwing, so auth flows never hard-fail.
+ * If Resend isn't configured (e.g. a preview env), we log and no-op instead of
+ * throwing, so auth flows never hard-fail.
  */
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const RESEND_FROM = process.env.RESEND_FROM || process.env.EMAIL_FROM || "Nomarc Projects <info@nomarcprojects.com>";
-const HOST = process.env.SMTP_HOST;
-const PORT = Number(process.env.SMTP_PORT || 465);
-const SECURE = (process.env.SMTP_SECURE ?? "true") !== "false";
-const USER = process.env.SMTP_USER;
-const PASS = process.env.SMTP_PASS;
 export const EMAIL_FROM = process.env.EMAIL_FROM || "Nomarc Projects <info@nomarcprojects.com>";
 
-export const isResendConfigured = Boolean(RESEND_API_KEY);
-export const isMailConfigured = Boolean(HOST && USER && PASS);
-export const isEmailConfigured = isResendConfigured || isMailConfigured;
+export const isEmailConfigured = Boolean(RESEND_API_KEY);
 
 let resend: Resend | null = null;
 function getResend() {
-  if (!isResendConfigured) return null;
+  if (!isEmailConfigured) return null;
   if (!resend) resend = new Resend(RESEND_API_KEY);
   return resend;
 }
 
 /**
- * Transport-level guardrails, overridable via env if the provider's real limits
- * turn out to differ. Deliberately conservative: exceeding a shared SMTP host's
- * concurrency gets the sending domain throttled or blocklisted, and recovering a
- * domain's reputation takes far longer than a slow send.
+ * `replyTo` is honored by Resend. `fromName` is accepted for call-site
+ * compatibility but ignored — with Resend the From (including its display
+ * name) must match the verified sender in `RESEND_FROM`, and cannot be varied
+ * per message without risking SPF/DKIM failure.
  */
-const MAX_CONNECTIONS = Math.max(1, Number(process.env.SMTP_MAX_CONNECTIONS || 3));
-const MAX_PER_SECOND = Math.max(1, Number(process.env.SMTP_MAX_PER_SECOND || 5));
-
-let transporter: nodemailer.Transporter | null = null;
-function getTransport() {
-  if (!isMailConfigured) return null;
-  if (!transporter) {
-    transporter = nodemailer.createTransport({
-      host: HOST,
-      port: PORT,
-      secure: SECURE, // true for 465 (implicit TLS)
-      auth: { user: USER, pass: PASS },
-      // Without these, an unreachable SMTP host hangs until the serverless
-      // function is killed, and the caller sees a platform 504 rather than a
-      // mail error. Fail fast instead.
-      connectionTimeout: 10_000,
-      greetingTimeout: 10_000,
-      socketTimeout: 20_000,
-      // Connection reuse + throttling. Previously unset, which meant a fresh TLS
-      // handshake per message and, in the campaign path, 20 of them at once.
-      // Shared SMTP hosts typically cap concurrent connections near 5, so a
-      // blast produced "too many connections" failures rather than mail.
-      //
-      // These bound how hard we hit the SMTP server. The campaign-level ceiling
-      // (messages per hour) is a separate, admin-configurable setting; this is
-      // the floor beneath it, so even a mis-set rate cannot open 50 sockets.
-      pool: true,
-      maxConnections: MAX_CONNECTIONS,
-      maxMessages: 100,
-      rateDelta: 1_000,
-      rateLimit: MAX_PER_SECOND,
-    });
-  }
-  return transporter;
-}
-
-/**
- * `fromName` / `replyTo` exist for admin email campaigns, which let the sender
- * be branded per campaign. The envelope address still comes from EMAIL_FROM —
- * only the display name is overridable, since a From address outside the
- * authenticated SMTP domain would fail SPF/DKIM and land in spam.
- */
-export async function sendEmail({ to, subject, html, text, fromName, replyTo }: {
-  to: string; subject: string; html: string; text?: string; fromName?: string; replyTo?: string;
+export async function sendEmail({ to, subject, html, text, replyTo, fromName: _fromName }: {
+  to: string; subject: string; html: string; text?: string; replyTo?: string; fromName?: string;
 }) {
-  const from = fromName?.trim()
-    ? `${fromName.trim().replace(/["<>\r\n]/g, "")} <${EMAIL_FROM.match(/<(.+)>/)?.[1] ?? EMAIL_FROM}>`
-    : EMAIL_FROM;
-
-  // Resend is the primary provider.
   const r = getResend();
-  if (r) {
-    await r.emails.send({
-      from: RESEND_FROM,
-      to,
-      subject,
-      html,
-      text: text || stripHtml(html),
-      replyTo: replyTo?.trim() || undefined,
-    });
-    return { skipped: false };
-  }
-
-  const t = getTransport();
-  if (!t) {
+  if (!r) {
     // In dev/preview a missing mailer is expected, so no-op rather than break
     // every auth flow. In production it means verification and password-reset
     // mail is silently vanishing — throw so it surfaces instead of leaving
@@ -119,10 +48,17 @@ export async function sendEmail({ to, subject, html, text, fromName, replyTo }: 
     if (process.env.NODE_ENV === "production") {
       throw new Error("Email not configured — refusing to silently drop email \"" + subject + "\"");
     }
-    console.warn(`[mailer] no email provider configured (Resend/SMTP) — skipped email "${subject}" → ${to}`);
+    console.warn(`[mailer] Resend not configured — skipped email "${subject}" → ${to}`);
     return { skipped: true };
   }
-  await t.sendMail({ from, to, subject, html, text: text || stripHtml(html), replyTo: replyTo?.trim() || undefined });
+  await r.emails.send({
+    from: RESEND_FROM,
+    to,
+    subject,
+    html,
+    text: text || stripHtml(html),
+    replyTo: replyTo?.trim() || undefined,
+  });
   return { skipped: false };
 }
 

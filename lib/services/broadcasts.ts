@@ -94,10 +94,10 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * Simple V1: composes one email, resolves the matching audience, and sends
- * in small chunks through the existing SMTP helper — no queue/worker. If
- * SMTP isn't configured, sendEmail() itself no-ops per recipient (consistent
+ * in small chunks through the existing Resend mailer — no queue/worker. If
+ * Resend isn't configured, sendEmail() itself no-ops per recipient (consistent
  * with how every other transactional email in this app already behaves);
- * the caller should check isMailConfigured to warn the admin beforehand.
+ * the caller should check isEmailConfigured to warn the admin beforehand.
  */
 export async function sendBroadcast(input: { subject: string; bodyHtml: string; filter: AudienceFilter }): Promise<{ sentCount: number; failedCount: number }> {
   const admin = await requireSuperAdmin();

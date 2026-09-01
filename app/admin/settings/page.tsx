@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Settings, Mail, Globe, ShieldCheck, Zap, CreditCard, Bell, Database,
-  ChevronDown, Save, Eye, EyeOff, Palette, Cloud, FileText, Server,
+  ChevronDown, Save, Palette, Cloud, FileText, Server,
   Users, Lock, Send, RefreshCw, ToggleLeft, Wrench, Bot, Activity,
   HardDrive, Download, Upload, Trash2, AlertCircle,
 } from "lucide-react";
@@ -106,12 +106,6 @@ function SaveBtn({ onClick, busy }: { onClick: () => void; busy: boolean }) {
 /* ─── Page ──────────────────────────────────────────────────────────── */
 
 export default function AdminSettingsPage() {
-  const [smtpHost, setSmtpHost] = useState("mail5019.site4now.net");
-  const [smtpPort, setSmtpPort] = useState("465");
-  const [smtpUser, setSmtpUser] = useState("info@nomarcprojects.com");
-  const [smtpPass, setSmtpPass] = useState("");
-  const [showPass, setShowPass] = useState(false);
-  const [smtpBusy, setSmtpBusy] = useState(false);
   const [fromName, setFromName] = useState("Nomarc Projects");
   const [fromEmail, setFromEmail] = useState("info@nomarcprojects.com");
   const [replyTo, setReplyTo] = useState("support@nomarcprojects.com");
@@ -124,9 +118,8 @@ export default function AdminSettingsPage() {
   });
   const toggleFlag = (key: keyof typeof flags) => setFlags((f) => ({ ...f, [key]: !f[key] }));
 
-  function saveSmtp() {
-    setSmtpBusy(true);
-    setTimeout(() => { setSmtpBusy(false); toast.success("SMTP settings saved (demo mode — add to Doppler for production)"); }, 800);
+  function saveEmail() {
+    toast.success("Sender identity updated (demo mode — set RESEND_FROM in Doppler for production)");
   }
 
   function sendTestEmail() {
@@ -161,7 +154,7 @@ export default function AdminSettingsPage() {
             badge={{ text: "Active", color: "bg-[#dcfce7] text-[#16803c]" }} value="Enabled" />
           <Row icon={ShieldCheck} label="Google OAuth" desc="GOOGLE_CLIENT_ID in Doppler"
             badge={{ text: "Not configured", color: "bg-[#f0f0f0] dark:bg-white/10 text-[#9a9a9a]" }} />
-          <Row icon={ShieldCheck} label="Email verification" desc="Require verified email before dashboard access" value="Off (SMTP pending)" />
+          <Row icon={ShieldCheck} label="Email verification" desc="Require verified email before dashboard access" value="Enabled (Resend)" />
           <Row icon={Lock} label="Session duration" desc="How long a login session stays active" value="7 days" />
           <Row icon={Lock} label="Password policy" desc="Minimum 8 characters required" value="8+ chars" />
           <div className="mt-3 rounded-xl bg-[#fafafa] dark:bg-white/[0.03] border border-[#ececec] dark:border-white/10 p-3.5">
@@ -169,27 +162,12 @@ export default function AdminSettingsPage() {
           </div>
         </Card>
 
-        {/* ── 3. Email (SMTP) ──────────────────────────── */}
-        <Card id="smtp" icon={Mail} title="Email (SMTP)" desc="Outbound email server for verification, notifications, and campaigns"
-          action={<span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#fff3cd] text-[#b45309]">Setup required</span>}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-            <FieldGroup label="SMTP Host">
-              <input className={inputClass} value={smtpHost} onChange={(e) => setSmtpHost(e.target.value)} placeholder="smtp.example.com" />
-            </FieldGroup>
-            <FieldGroup label="Port">
-              <input className={inputClass} value={smtpPort} onChange={(e) => setSmtpPort(e.target.value)} placeholder="465" />
-            </FieldGroup>
-            <FieldGroup label="Username / Email">
-              <input className={inputClass} value={smtpUser} onChange={(e) => setSmtpUser(e.target.value)} placeholder="you@example.com" />
-            </FieldGroup>
-            <FieldGroup label="Password">
-              <div className="relative">
-                <input className={cn(inputClass, "pr-10")} type={showPass ? "text" : "password"} value={smtpPass} onChange={(e) => setSmtpPass(e.target.value)} placeholder="••••••••" />
-                <button onClick={() => setShowPass((s) => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#b3b3b3] hover:text-[#1e1e1e] dark:hover:text-white">
-                  {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
-                </button>
-              </div>
-            </FieldGroup>
+        {/* ── 3. Email (Resend) ─────────────────────────── */}
+        <Card id="email" icon={Mail} title="Email (Resend)" desc="Outbound email provider for verification, notifications, and campaigns"
+          action={<span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#dcfce7] text-[#16803c]">Configured</span>}>
+          <div className="rounded-xl bg-[#fafafa] dark:bg-white/[0.03] border border-[#ececec] dark:border-white/10 p-4 mb-4">
+            <p className="text-[13px] font-semibold text-[#1e1e1e] dark:text-white">Resend API key</p>
+            <p className="text-[12px] text-[#9a9a9a] mt-0.5">Set via Doppler — <span className="code">RESEND_API_KEY</span> (from the Resend dashboard). The <span className="code">RESEND_FROM</span> sender must be a domain verified in Resend (SPF/DKIM).</p>
           </div>
 
           <div className="border-t border-[#f0f0f0] dark:border-white/10 pt-3 mb-4">
@@ -208,7 +186,7 @@ export default function AdminSettingsPage() {
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
-            <SaveBtn onClick={saveSmtp} busy={smtpBusy} />
+            <SaveBtn onClick={saveEmail} busy={false} />
             <button onClick={sendTestEmail} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-[#e3e3e3] dark:border-white/15 text-[12.5px] font-semibold text-[#6b6b6b] dark:text-white/60 hover:border-[#ffd716] transition-colors">
               <Send size={13} /> Send test email
             </button>
@@ -252,7 +230,7 @@ export default function AdminSettingsPage() {
           <Toggle icon={Mail} label="Email notifications" desc="Send email for important events (orders, quotes, messages)" enabled={flags.emailNotifications} onChange={() => toggleFlag("emailNotifications")} />
           <Toggle icon={Bell} label="Push notifications" desc="Browser push notifications for real-time alerts" enabled={flags.pushNotifications} onChange={() => toggleFlag("pushNotifications")} />
           <div className="mt-3 rounded-xl bg-[#fafafa] dark:bg-white/[0.03] border border-[#ececec] dark:border-white/10 p-3.5">
-            <p className="text-[12px] text-[#9a9a9a]"><AlertCircle size={12} className="inline mr-1.5 text-[#ffd716]" />Email notifications require SMTP to be configured above.</p>
+            <p className="text-[12px] text-[#9a9a9a]"><AlertCircle size={12} className="inline mr-1.5 text-[#ffd716]" />Email notifications are sent via Resend (set RESEND_API_KEY in Doppler).</p>
           </div>
         </Card>
 
@@ -364,7 +342,7 @@ export default function AdminSettingsPage() {
             { label: "Vercel (Frontend)", status: "Operational", ok: true },
             { label: "CockroachDB", status: "Connected", ok: true },
             { label: "Doppler (Secrets)", status: "Synced", ok: true },
-            { label: "SMTP (Email)", status: "Not configured", ok: false },
+            { label: "Resend (Email)", status: "Configured", ok: true },
             { label: "Paystack", status: "Pending keys", ok: false },
             { label: "Cloudflare R2", status: "Partial (account ID set)", ok: false },
             { label: "Google OAuth", status: "Not configured", ok: false },
@@ -384,7 +362,7 @@ export default function AdminSettingsPage() {
           <p className="text-[12px] font-semibold text-[#1e1e1e] dark:text-white mb-1">Configuration guide</p>
           <p className="text-[12px] text-[#9a9a9a] leading-relaxed">
             Secrets are managed in <span className="font-mono bg-[#f0f0f0] dark:bg-white/10 px-1 rounded text-[11px]">Doppler → nomarc → prd</span>.
-            Feature flags will persist to a settings table once wired. SMTP, Paystack, and R2 credentials should be added to Doppler — the inputs above are for reference and testing.
+            Feature flags will persist to a settings table once wired. Resend, Paystack, and R2 credentials should be added to Doppler — the inputs above are for reference and testing.
           </p>
         </div>
       </div>
