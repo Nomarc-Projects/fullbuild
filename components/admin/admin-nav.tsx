@@ -78,10 +78,14 @@ const NAV: Group[] = [
     // from nowhere, so the one screen that answers "who did what, and when" was
     // reachable only by typing the URL.
     { label: "Audit Logs", href: "/admin/audit", icon: ScrollText },
-    // Taking the public site offline is super-admin only (see setMaintenance).
-    { label: "Maintenance Mode", href: "/admin/maintenance", icon: Wrench, superOnly: true },
+  ]},
+  // Both switches are super-admin only (see setMaintenance / setExhibitionHub):
+  // nav hides them from plain admins, the server actions enforce it.
+  { title: "Features", items: [
     // Opening/locking the marketplace is super-admin only (see setExhibitionHub).
-    { label: "Exhibition Hub", href: "/admin/platform/exhibition-hub", icon: Store, superOnly: true },
+    { label: "Exhibition Hub Config", href: "/admin/platform/exhibition-hub", icon: Store, superOnly: true },
+    // Taking the public site offline is super-admin only (see setMaintenance).
+    { label: "Maintenance Page Config", href: "/admin/maintenance", icon: Wrench, superOnly: true },
   ]},
 ];
 
