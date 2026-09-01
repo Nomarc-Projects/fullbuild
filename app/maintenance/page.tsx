@@ -7,7 +7,7 @@ import { NotifyForm } from "@/components/maintenance/notify-form";
 import { getMaintenancePublic } from "@/lib/services/platform-settings-read";
 
 export const metadata = {
-  title: "Welcome to Nomadic Architect",
+  title: "Welcome to Nomadic Projects",
   description: "NomarcProject is currently under construction. Enter your email and we'll notify you once it's live.",
   robots: { index: false, follow: false },
 };
@@ -90,7 +90,7 @@ export default async function MaintenancePage() {
 
       <div className="shrink-0">
         <h1 className="max-w-[620px] text-[21px] font-bold leading-tight tracking-[-0.01em] text-[#1e1e1e] dark:text-white sm:text-[27px] lg:text-[30px]">
-          Welcome to Nomadic Architect
+          Welcome to Nomadic Projects
         </h1>
         <p className="mt-2 max-w-[520px] text-[13px] leading-snug text-[#6b6b6b] dark:text-white/60 sm:mt-3 sm:text-[14.5px] sm:leading-relaxed">
           NomarcProject is currently under construction. Enter your email below so we can notify
