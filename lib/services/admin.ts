@@ -26,8 +26,9 @@ export type AdminStats = {
 };
 
 /** Zeroed stats — what the overview renders when the DB is briefly unreachable,
- *  so a transient blip shows empty tiles instead of 500-ing the admin console. */
-export const ZERO_ADMIN_STATS: AdminStats = {
+ *  so a transient blip shows empty tiles instead of 500-ing the admin console.
+ *  Module-private: "use server" files can only *export* async functions. */
+const ZERO_ADMIN_STATS: AdminStats = {
   totalUsers: 0, professionals: 0, exhibitors: 0, buyers: 0, admins: 0,
   jobs: 0, products: 0, applications: 0, quotes: 0,
   pendingRecommendations: 0, openReports: 0, unverified: 0,
