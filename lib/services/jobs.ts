@@ -106,39 +106,43 @@ export async function getJobPostingDetail(jobId: string): Promise<JobPostingDeta
 }
 
 export async function getMyPostedJobs(): Promise<PostedJob[]> {
-  const uid = await requireUserId();
-  const rows = await db
-    .select({
-      id: job.id, title: job.title, company: job.company, location: job.location,
-      employmentType: job.employmentType, workModel: job.workModel, status: job.status, draft: job.draft,
-      salaryMin: job.salaryMin, salaryMax: job.salaryMax, createdAt: job.createdAt,
-      description: job.description, requirements: job.requirements, deadline: job.deadline,
-      applicants: sql<number>`count(${application.id}) filter (where ${application.draft} = false)`,
-      newApplicants: sql<number>`count(${application.id}) filter (where ${application.draft} = false and ${application.status} = 'applied')`,
-    })
-    .from(job)
-    .leftJoin(application, eq(application.jobId, job.id))
-    .where(eq(job.ownerUserId, uid))
-    .groupBy(job.id)
-    .orderBy(desc(job.createdAt));
-  return rows.map((r) => {
-    const checks: [string, boolean][] = [
-      ["Job description", !r.description],
-      ["Requirements", !r.requirements],
-      ["Compensation", !r.salaryMin && !r.salaryMax],
-      ["Application settings", !r.deadline],
-    ];
-    const missing = checks.filter(([, isMissing]) => isMissing).map(([label]) => label);
-    return {
-      id: r.id, title: r.title, company: r.company, location: r.location,
-      employmentType: r.employmentType, workModel: r.workModel, status: r.status ?? "open", draft: !!r.draft,
-      salary: naira(r.salaryMin, r.salaryMax),
-      createdAt: new Date(r.createdAt).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }),
-      applicants: Number(r.applicants ?? 0), newApplicants: Number(r.newApplicants ?? 0),
-      missing,
-      completePercent: Math.round(((checks.length - missing.length) / checks.length) * 100),
-    };
-  });
+  try {
+    const uid = await requireUserId();
+    const rows = await db
+      .select({
+        id: job.id, title: job.title, company: job.company, location: job.location,
+        employmentType: job.employmentType, workModel: job.workModel, status: job.status, draft: job.draft,
+        salaryMin: job.salaryMin, salaryMax: job.salaryMax, createdAt: job.createdAt,
+        description: job.description, requirements: job.requirements, deadline: job.deadline,
+        applicants: sql<number>`count(${application.id}) filter (where ${application.draft} = false)`,
+        newApplicants: sql<number>`count(${application.id}) filter (where ${application.draft} = false and ${application.status} = 'applied')`,
+      })
+      .from(job)
+      .leftJoin(application, eq(application.jobId, job.id))
+      .where(eq(job.ownerUserId, uid))
+      .groupBy(job.id)
+      .orderBy(desc(job.createdAt));
+    return rows.map((r) => {
+      const checks: [string, boolean][] = [
+        ["Job description", !r.description],
+        ["Requirements", !r.requirements],
+        ["Compensation", !r.salaryMin && !r.salaryMax],
+        ["Application settings", !r.deadline],
+      ];
+      const missing = checks.filter(([, isMissing]) => isMissing).map(([label]) => label);
+      return {
+        id: r.id, title: r.title, company: r.company, location: r.location,
+        employmentType: r.employmentType, workModel: r.workModel, status: r.status ?? "open", draft: !!r.draft,
+        salary: naira(r.salaryMin, r.salaryMax),
+        createdAt: new Date(r.createdAt).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }),
+        applicants: Number(r.applicants ?? 0), newApplicants: Number(r.newApplicants ?? 0),
+        missing,
+        completePercent: Math.round(((checks.length - missing.length) / checks.length) * 100),
+      };
+    });
+  } catch {
+    return [];
+  }
 }
 
 async function assertOwnsJob(jobId: string, uid: string) {
