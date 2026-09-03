@@ -108,8 +108,13 @@ export function attachDbRetry(pool: Pool, label: string, attempts = 3): void {
         ? origQuery(text as never, callback as never)
         : origQuery(text as never, values as never, callback as never);
     }
-    // QueryConfig-object form is rare next to statement strings; pass it through.
-    if (typeof text !== "string") return origQuery(text as never);
+    // QueryConfig-object form is rare next to statement strings; pass it through
+    // along with its values array — node-postgres' supported (config, values) form.
+    if (typeof text !== "string") {
+      return values === undefined
+        ? origQuery(text as never)
+        : origQuery(text as never, values as never);
+    }
     const run = () =>
       values === undefined
         ? (origQuery(text as never) as Promise<QueryResult>)
