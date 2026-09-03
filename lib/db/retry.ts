@@ -108,12 +108,16 @@ export function attachDbRetry(pool: Pool, label: string, attempts = 3): void {
         ? origQuery(text as never, callback as never)
         : origQuery(text as never, values as never, callback as never);
     }
-    // QueryConfig-object form is rare next to statement strings; pass it through
-    // along with its values array — node-postgres' supported (config, values) form.
+    // QueryConfig-object form (how Drizzle calls node-postgres) — forward the
+    // values array and wrap in the same transient-error retry as string queries,
+    // so Drizzle-heavy paths (admin overview, etc.) inherit the DNS/TCP flake
+    // protection too.
     if (typeof text !== "string") {
-      return values === undefined
-        ? origQuery(text as never)
-        : origQuery(text as never, values as never);
+      const run = () =>
+        values === undefined
+          ? (origQuery(text as never) as Promise<QueryResult>)
+          : (origQuery(text as never, values as never) as Promise<QueryResult>);
+      return withRetry(run, { label: `${label}.query`, attempts });
     }
     const run = () =>
       values === undefined
