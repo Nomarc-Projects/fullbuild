@@ -29,7 +29,7 @@ type QueuedCampaign = {
 };
 
 /** How many times a transient failure is retried before the recipient is
- *  marked permanently failed. Bounded so one bad SMTP stretch can't pin the
+ *  marked permanently failed. Bounded so one bad provider stretch can't pin the
  *  queue behind a single address forever. */
 const MAX_ATTEMPTS = 3;
 

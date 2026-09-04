@@ -81,7 +81,7 @@ function RowActions({ u, onImpersonate, onToggleBan, onDelete, onViewDetails }: 
   // overflow-x-auto container (the inline absolute menu used to be cut off).
   const items: KebabItem[] = [
     { icon: Eye, label: "View details", onClick: onViewDetails },
-    { icon: KeyRound, label: "Reset password", onClick: () => toast.info("Password reset email — requires SMTP") },
+    { icon: KeyRound, label: "Reset password", onClick: () => toast.info("Password reset email — requires Resend") },
     { icon: Pencil, label: "Edit user", onClick: () => toast.info("Edit user — coming soon") },
     { icon: LogIn, label: "Login as user", hidden: u.role === "admin", onClick: onImpersonate },
     { icon: u.banned ? RotateCcw : Ban, label: u.banned ? "Activate" : "Deactivate", onClick: onToggleBan },
@@ -173,7 +173,7 @@ function UserDetailPanel({ u, onClose, onChangeRole, onChangePlan, onToggleBan, 
           <div className="px-5 py-4 border-t border-[#f0f0f0] dark:border-white/10 mt-auto">
             <p className="text-[11px] font-bold uppercase tracking-wider text-[#9a9a9a] mb-3">Quick Actions</p>
             <div className="space-y-2">
-              <button onClick={() => toast.info("Password reset email — requires SMTP")}
+              <button onClick={() => toast.info("Password reset email — requires Resend")}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-[#e3e3e3] dark:border-white/15 hover:border-[#ffd716] transition-colors text-left">
                 <KeyRound size={15} className="text-[#9a9a9a]" />
                 <div>

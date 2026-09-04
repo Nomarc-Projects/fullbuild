@@ -125,7 +125,7 @@ export function EmailCampaignsView({ rows, mailConfigured, isSuperAdmin = false 
       <div className="min-w-0 flex-1">
         {!mailConfigured && (
           <div className="mb-4 rounded-xl border border-[#ffd716]/40 bg-[#fffdf2] px-4 py-3 text-[12.5px] text-[#8a7400] dark:border-[#ffd716]/20 dark:bg-[#ffd716]/[0.06] dark:text-[#ffd716]">
-            SMTP isn’t configured in this environment, so campaigns can be drafted and scheduled but not delivered.
+            Email isn’t configured in this environment, so campaigns can be drafted and scheduled but not delivered.
           </div>
         )}
 

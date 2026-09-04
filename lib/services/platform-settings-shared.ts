@@ -35,7 +35,7 @@ export function normalizeTickerSpeed(raw: unknown): TickerSpeedSetting {
 
 /* ── Mail throughput ────────────────────────────────────────────────────
  * How fast a campaign is allowed to go out. Adjustable without a deploy
- * because the right number depends on what the SMTP provider will tolerate,
+ * because the right number depends on what the email provider will tolerate,
  * which is discovered in production rather than known in advance.
  */
 export interface MailThroughputSetting {
@@ -46,7 +46,7 @@ export interface MailThroughputSetting {
   batchSize: number;
 }
 
-/** 300/hour is the agreed default: safe for the current SMTP plan, and with a
+/** 300/hour is the agreed default: safe for the current Resend plan, and with a
  *  five-minute scheduler that lands at 25 messages per invocation. */
 export const MAIL_THROUGHPUT_DEFAULT: MailThroughputSetting = {
   emailsPerHour: 300,

@@ -12,7 +12,7 @@ import { MAIL_THROUGHPUT_DEFAULT } from "@/lib/services/platform-settings-shared
  * The setting, its clamp and the drain that honours it all existed, but nothing
  * rendered it, so the rate was only changeable through the database. This is the
  * surface: the number an admin actually reaches for when a blast is going out
- * too fast for the SMTP plan, or too slowly to finish today.
+ * too fast for the email plan, or too slowly to finish today.
  *
  * Reads through a server action on mount rather than being handed props, because
  * the settings page it sits on is a client component.
@@ -91,7 +91,7 @@ export function MailThroughputCard() {
           <strong className="text-[#1e1e1e] dark:text-white">{hoursFor(1795).toFixed(1)} hours</strong> to finish.
         </p>
         <p className="mt-1.5 text-[11.5px] text-[#9a9a9a]">
-          Raising this past what the SMTP provider allows causes failed sends, and can get the sending domain blocklisted. Values are clamped to 5,000/hour.
+          Raising this past what the Resend rate limit allows causes failed sends, and can get the sending domain blocklisted. Values are clamped to 5,000/hour.
         </p>
       </div>
 

@@ -237,7 +237,7 @@ export const auth = betterAuth({
       enabled: true,
       // Changing the address on an account is an account-takeover step, and it
       // also lets someone claim an address they don't own. This was `true` with
-      // the note "SMTP is not yet live" — SMTP is wired now.
+      // the note "email is not yet live" — email is wired now via Resend.
       updateEmailWithoutVerification: false,
     },
     additionalFields: {

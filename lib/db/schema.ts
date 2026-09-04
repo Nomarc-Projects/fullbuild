@@ -1117,7 +1117,7 @@ export const quizAttempt = pgTable("quiz_attempt", {
   createdAt: ts(),
 });
 
-/* ── CRM broadcasts (simple V1 — no queue, sent via existing SMTP helper) ── */
+/* ── CRM broadcasts (simple V1 — no queue, sent via the existing Resend mailer) ── */
 export const broadcastLog = pgTable("broadcast_log", {
   id: id(),
   subject: text("subject").notNull(),

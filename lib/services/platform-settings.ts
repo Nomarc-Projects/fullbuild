@@ -77,7 +77,7 @@ export async function setMaintenance(
  * Admin-only write for the campaign send rate.
  *
  * Lives in platform_setting rather than an env var for the same reason as
- * maintenance: the safe rate is whatever the SMTP provider actually tolerates,
+ * maintenance: the safe rate is whatever the email provider actually tolerates,
  * which is learned mid-send, and throttling a blast that is already going out
  * must not require a redeploy.
  *
@@ -100,7 +100,7 @@ export async function setMailThroughput(
   input: Partial<MailThroughputSetting>,
 ): Promise<MailThroughputSetting> {
   // Super admin: releasing a blast is already super-admin only, and this lever
-  // decides how hard that blast hits the SMTP provider. Set too high it gets the
+  // decides how hard that blast hits the email provider. Set too high it gets the
   // sending domain blocklisted, which affects password resets too.
   const admin = await requireSuperAdmin();
   const current = await getMailThroughput();

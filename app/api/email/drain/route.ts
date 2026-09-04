@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * How long one slice may take. A slice is deliberately small (25 messages at the
- * default 300/hour), so this is headroom for slow SMTP rather than a target.
+ * default 300/hour), so this is headroom for slow provider sends rather than a target.
  */
 export const maxDuration = 300;
 
@@ -17,7 +17,7 @@ export const maxDuration = 300;
  *
  * Called on a schedule by a systemd timer on the OCI VM (see
  * helm/deploy/nomarc-mail-drain.*). The VM is the clock only: it holds no
- * database or SMTP credentials, which keeps the boundary helm/README.md draws —
+ * database or email credentials, which keeps the boundary helm/README.md draws —
  * "CockroachDB stays the app database; this service does not touch it."
  *
  * Authenticated by a shared secret rather than a session, because the caller is a

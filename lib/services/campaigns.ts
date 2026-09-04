@@ -316,7 +316,7 @@ function validateForTest(input: CampaignInput): string | null {
  * Reserved TLDs that can never receive mail (RFC 2606 / RFC 6761).
  *
  * The composer prefills the test field with the acting admin's own address, and
- * seeded admin accounts use `admin@nomarc.test`. SMTP either rejects that
+ * seeded admin accounts use `admin@nomarc.test`. Resend either rejects that
  * outright or blackholes it, so "Send Test Email" reported success and nothing
  * ever arrived. Better to refuse with an explanation than to appear to work.
  */

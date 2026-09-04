@@ -123,7 +123,7 @@ export function AdminBroadcasts({ history, mailConfigured }: { history: Broadcas
       {!mailConfigured && (
         <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-[#fef3c7] text-[#92400e] text-[13px]">
           <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
-          <span>Email sending isn&apos;t configured yet — sends below will be logged but not actually delivered until SMTP credentials are live.</span>
+          <span>Email isn&apos;t configured yet — sends below will be logged but not actually delivered until the RESEND_API_KEY is set.</span>
         </div>
       )}
 

@@ -593,7 +593,7 @@ export async function getAuditLog(): Promise<AuditRow[]> {
  * A rogue or compromised admin account's first move is to grant itself more
  * access, and an audit row only helps someone who thinks to go and read it. Mail
  * makes it noticeable. Best-effort: a mail failure must never roll back or block
- * the privilege change itself, or a broken SMTP config would lock role
+ * the privilege change itself, or a broken email config would lock role
  * management entirely.
  */
 async function notifySuperAdminsOfPrivilegeChange(actorId: string, targetUserId: string, newRole: string): Promise<void> {
@@ -699,7 +699,7 @@ export async function getAdmins(): Promise<AdminRow[]> {
  * "Invite New Admin" (image 111) — super_admin only. There's no email/invite
  * infrastructure yet, so this grants the admin role directly to an EXISTING
  * account by email (they must have already signed up). A real invite-by-email
- * flow is a natural follow-up once SMTP is live.
+ * flow is a natural follow-up once the email/Resend invite flow is live.
  */
 export async function inviteAdminByEmail(email: string): Promise<{ ok: boolean; error?: string }> {
   try {

@@ -317,7 +317,7 @@ export function CampaignComposer({
       )}
       {!mailConfigured && (
         <div className="mb-4 rounded-xl border border-[#ffd716]/40 bg-[#fffdf2] px-4 py-3 text-[12.5px] text-[#8a7400] dark:border-[#ffd716]/20 dark:bg-[#ffd716]/[0.06] dark:text-[#ffd716]">
-          SMTP isn’t configured here — you can draft and schedule, but nothing will actually be delivered.
+          Email isn’t configured here — you can draft and schedule, but nothing will actually be delivered.
         </div>
       )}
 
