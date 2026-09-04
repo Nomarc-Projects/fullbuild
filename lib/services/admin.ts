@@ -314,6 +314,38 @@ export async function setUserBanned(userId: string, banned: boolean, reason?: st
   revalidatePath("/admin/users");
 }
 
+/** What a "reset password" send reports back to the admin console. */
+export type ResetPasswordResult = { sent: true } | { sent: false; error: string };
+
+/**
+ * Send a password-reset link (via the app's Resend `sendEmail`, through
+ * better-auth `emailAndPassword.sendResetPassword`) for an arbitrary user.
+ *
+ * Admin-gated (`requireAdmin`, so both admin and super_admin may call it). The
+ * reset link itself is delivered by email to the target user's own address; the
+ * caller never sees or sets a password — they only trigger the same email flow
+ * the user's own "Forgot password" page uses, so the reset is always performed
+ * through the per-account, expiring reset token.
+ */
+export async function requestPasswordResetAsAdmin(userId: string): Promise<ResetPasswordResult> {
+  const admin = await requireAdmin();
+  const res = await db.execute(sql`SELECT email FROM "user" WHERE id = ${userId} LIMIT 1`);
+  const u = res.rows[0] as { email: string } | undefined;
+  if (!u?.email) return { sent: false, error: "No account found for that user." };
+  try {
+    // `redirectTo` is the callback the reset link bounces through; the reset
+    // page itself already exists at /(auth)/reset-password.
+    await auth.api.requestPasswordReset({
+      body: { email: u.email, redirectTo: "/reset-password" },
+      headers: await headers(),
+    });
+    await logAudit(admin, "send_password_reset", "user", userId, u.email);
+    return { sent: true };
+  } catch (err) {
+    return { sent: false, error: (err as Error)?.message ?? "Could not send the reset email." };
+  }
+}
+
 export type AdminUserDetail = AdminUser & {
   avatarUrl: string | null; headline: string | null; industry: string | null; location: string | null;
   companyId: string | null; tier: number; profileViews: number; openTickets: number;

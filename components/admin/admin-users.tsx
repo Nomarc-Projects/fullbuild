@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Modal, GhostButton } from "@/components/ui/modal";
 import { SelectMenu } from "@/components/ui/select-menu";
 import { KebabMenu, type KebabItem } from "@/components/dashboard/kit";
-import { setUserRole, setUserPlan, setUserBanned, exportUsersCsv, adminDeleteUser, type AdminUser, type AdminUserStats } from "@/lib/services/admin";
+import { setUserRole, setUserPlan, setUserBanned, exportUsersCsv, adminDeleteUser, requestPasswordResetAsAdmin, type AdminUser, type AdminUserStats } from "@/lib/services/admin";
 import { startImpersonation } from "@/lib/services/impersonation";
 import { cn } from "@/lib/utils";
 
@@ -74,14 +74,14 @@ function KycBadge({ verified }: { verified: boolean }) {
 }
 
 /* ─── Per-row action dropdown ────────────────────────────────────────────── */
-function RowActions({ u, onImpersonate, onToggleBan, onDelete, onViewDetails }: {
-  u: AdminUser; onImpersonate: () => void; onToggleBan: () => void; onDelete: () => void; onViewDetails: () => void;
+function RowActions({ u, onImpersonate, onToggleBan, onDelete, onViewDetails, onResetPassword }: {
+  u: AdminUser; onImpersonate: () => void; onToggleBan: () => void; onDelete: () => void; onViewDetails: () => void; onResetPassword: () => void;
 }) {
   // Portal-based KebabMenu so the dropdown is never clipped by the table's
   // overflow-x-auto container (the inline absolute menu used to be cut off).
   const items: KebabItem[] = [
     { icon: Eye, label: "View details", onClick: onViewDetails },
-    { icon: KeyRound, label: "Reset password", onClick: () => toast.info("Password reset email — requires Resend") },
+    { icon: KeyRound, label: "Reset password", onClick: onResetPassword },
     { icon: Pencil, label: "Edit user", onClick: () => toast.info("Edit user — coming soon") },
     { icon: LogIn, label: "Login as user", hidden: u.role === "admin", onClick: onImpersonate },
     { icon: u.banned ? RotateCcw : Ban, label: u.banned ? "Activate" : "Deactivate", onClick: onToggleBan },
@@ -91,10 +91,10 @@ function RowActions({ u, onImpersonate, onToggleBan, onDelete, onViewDetails }: 
 }
 
 /* ─── User detail slide-over panel ───────────────────────────────────────── */
-function UserDetailPanel({ u, onClose, onChangeRole, onChangePlan, onToggleBan, onImpersonate, onDelete }: {
+function UserDetailPanel({ u, onClose, onChangeRole, onChangePlan, onToggleBan, onImpersonate, onDelete, onResetPassword }: {
   u: AdminUser; onClose: () => void;
   onChangeRole: (role: string) => void; onChangePlan: (plan: string) => void;
-  onToggleBan: () => void; onImpersonate: () => void; onDelete: () => void;
+  onToggleBan: () => void; onImpersonate: () => void; onDelete: () => void; onResetPassword: () => void;
 }) {
   const initials = (u.name || u.email).split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 
@@ -173,7 +173,7 @@ function UserDetailPanel({ u, onClose, onChangeRole, onChangePlan, onToggleBan, 
           <div className="px-5 py-4 border-t border-[#f0f0f0] dark:border-white/10 mt-auto">
             <p className="text-[11px] font-bold uppercase tracking-wider text-[#9a9a9a] mb-3">Quick Actions</p>
             <div className="space-y-2">
-              <button onClick={() => toast.info("Password reset email — requires Resend")}
+              <button onClick={() => { onResetPassword(); onClose(); }}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-[#e3e3e3] dark:border-white/15 hover:border-[#ffd716] transition-colors text-left">
                 <KeyRound size={15} className="text-[#9a9a9a]" />
                 <div>
@@ -342,6 +342,15 @@ export function AdminUsers({ users = [], stats, search = "" }: { users?: AdminUs
     setList((l) => l.map((x) => (x.id === u.id ? { ...x, banned: next } : x)));
     toast.success(next ? "User suspended" : "User reinstated");
     setUserBanned(u.id, next).then(() => router.refresh()).catch((e) => { setList(prev); toast.error(e instanceof Error ? e.message : "Failed"); });
+  };
+  const resetPassword = (u: AdminUser) => {
+    toast.loading(`Sending reset link to ${u.email}…`, { id: "reset" });
+    requestPasswordResetAsAdmin(u.id)
+      .then((r) => {
+        if (r.sent) toast.success(`Reset link sent to ${u.email}`, { id: "reset" });
+        else toast.error(r.error, { id: "reset" });
+      })
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Could not send reset email.", { id: "reset" }));
   };
   const impersonate = (u: AdminUser) => {
     toast.loading(`Switching to ${u.name || u.email}…`, { id: "imp" });
@@ -536,7 +545,7 @@ export function AdminUsers({ users = [], stats, search = "" }: { users?: AdminUs
                     <td className="px-3 py-3.5"><div className="w-[100px]"><SelectMenu value={cap(u.plan)} options={PLANS.map(cap)} onChange={(l) => changePlan(u, l.toLowerCase())} /></div></td>
                     <td className="px-3 py-3.5 text-[12px] text-[#6b6b6b] dark:text-white/60 whitespace-nowrap">{u.joined}</td>
                     <td className="px-3 py-3.5 text-right">
-                      <RowActions u={u} onImpersonate={() => impersonate(u)} onToggleBan={() => toggleBan(u)} onDelete={() => setDelUser(u)} onViewDetails={() => setDetailUser(u)} />
+                      <RowActions u={u} onImpersonate={() => impersonate(u)} onToggleBan={() => toggleBan(u)} onDelete={() => setDelUser(u)} onViewDetails={() => setDetailUser(u)} onResetPassword={() => resetPassword(u)} />
                     </td>
                   </tr>
                 ))}
@@ -562,7 +571,7 @@ export function AdminUsers({ users = [], stats, search = "" }: { users?: AdminUs
                   <SelectMenu value={cap(u.plan)} options={PLANS.map(cap)} onChange={(l) => changePlan(u, l.toLowerCase())} />
                 </div>
                 <div className="mt-2 flex items-center justify-end">
-                  <RowActions u={u} onImpersonate={() => impersonate(u)} onToggleBan={() => toggleBan(u)} onDelete={() => setDelUser(u)} onViewDetails={() => setDetailUser(u)} />
+                  <RowActions u={u} onImpersonate={() => impersonate(u)} onToggleBan={() => toggleBan(u)} onDelete={() => setDelUser(u)} onViewDetails={() => setDetailUser(u)} onResetPassword={() => resetPassword(u)} />
                 </div>
               </div>
             ))}
@@ -666,6 +675,7 @@ export function AdminUsers({ users = [], stats, search = "" }: { users?: AdminUs
           onToggleBan={() => { toggleBan(detailUser); setDetailUser({ ...detailUser, banned: !detailUser.banned }); }}
           onImpersonate={() => impersonate(detailUser)}
           onDelete={() => { setDelUser(detailUser); setDetailUser(null); }}
+          onResetPassword={() => resetPassword(detailUser)}
         />
       )}
     </div>
