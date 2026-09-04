@@ -87,6 +87,39 @@ export async function updateProduct(id: string, input: ProductInput): Promise<vo
   bump();
 }
 
+/** The scalar fields an owner can edit, owner-gated. The signed-in user must
+ *  own the company the product belongs to, so one exhibitor can never read
+ *  another's draft listing data. */
+export type ProductForEdit = {
+  id: string; name: string; slug: string | null; sku: string | null; category: string | null; type: string | null;
+  vendorName: string | null; description: string | null; tags: string[]; availability: string | null;
+  coverUrl: string | null; gallery: string[]; specs: { label: string; value: string }[];
+  retailMin: number | null; retailMax: number | null; wholesaleMin: number | null; wholesaleMax: number | null;
+  costPerItem: number | null; stock: number; unit: string | null;
+  seoTitle: string | null; seoDescription: string | null; status: ProductStatus; companyId: string;
+};
+
+export async function getOwnedProductForEdit(id: string): Promise<ProductForEdit | null> {
+  const uid = await requireUserId();
+  const [p] = await db.select()
+    .from(product)
+    .innerJoin(company, eq(product.companyId, company.id))
+    .where(and(eq(product.id, id), eq(company.ownerUserId, uid)))
+    .limit(1);
+  if (!p) return null;
+  const r = p.product;
+  return {
+    id: r.id, name: r.name, slug: r.slug, sku: r.sku, category: r.category, type: r.type,
+    vendorName: r.vendorName, description: r.description, tags: r.tags ?? [],
+    availability: r.availability, coverUrl: r.coverUrl, gallery: r.gallery ?? [],
+    specs: r.specs ?? [],
+    retailMin: r.retailMin, retailMax: r.retailMax, wholesaleMin: r.wholesaleMin, wholesaleMax: r.wholesaleMax,
+    costPerItem: r.costPerItem, stock: r.stock ?? 0, unit: r.unit,
+    seoTitle: r.seoTitle, seoDescription: r.seoDescription,
+    status: (r.status as ProductStatus) ?? "active", companyId: r.companyId,
+  };
+}
+
 export async function setProductStatus(id: string, status: ProductStatus): Promise<void> {
   const uid = await requireUserId();
   const companyId = await ensureCompany(uid);
