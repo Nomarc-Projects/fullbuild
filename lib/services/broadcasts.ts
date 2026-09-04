@@ -36,30 +36,53 @@ export type AudienceFilter = {
   role?: "professional" | "exhibitor" | "all";
   plan?: "free" | "plus" | "pro" | "premium" | "all";
   verifiedOnly?: boolean;
+  /** When set, targets a single user and the role/plan/verified filters are ignored. */
+  userId?: string;
 };
 
-const audienceWhere = (f: AudienceFilter) => sql`
-  WHERE u.banned IS NOT TRUE
-  ${f.role && f.role !== "all" ? sql`AND u.role = ${f.role}` : sql``}
-  ${f.plan && f.plan !== "all" ? sql`AND u.plan = ${f.plan}` : sql``}
-  ${f.verifiedOnly ? sql`AND COALESCE(p.verified, c.verified, false) = true` : sql``}
-`;
+/** Audience conditions (no leading WHERE) for the compose form's group targets. */
+const audienceConditions = (f: AudienceFilter) =>
+  sql`u.banned IS NOT TRUE
+      ${f.role && f.role !== "all" ? sql`AND u.role = ${f.role}` : sql``}
+      ${f.plan && f.plan !== "all" ? sql`AND u.plan = ${f.plan}` : sql``}
+      ${f.verifiedOnly ? sql`AND COALESCE(p.verified, c.verified, false) = true` : sql``}`;
 
-async function matchingRecipients(filter: AudienceFilter): Promise<{ id: string; name: string; email: string }[]> {
+/**
+ * Resolve the recipients for a send. When a single user is targeted (`userId`)
+ * only that user matches; otherwise the audience filter is applied.
+ */
+async function matchingRecipients(filter: AudienceFilter, userId?: string): Promise<{ id: string; name: string; email: string }[]> {
   const res = await db.execute(sql`
     SELECT u.id, u.name, u.email
     FROM "user" u
     LEFT JOIN profile p ON p.user_id = u.id
     LEFT JOIN company c ON c.owner_user_id = u.id
-    ${audienceWhere(filter)}
+    WHERE ${userId ? sql`u.id = ${userId}` : audienceConditions(filter)}
   `);
   return (res.rows as { id: string; name: string; email: string }[]);
 }
 
-/** Live recipient count for the compose form's audience preview. */
-export async function getAudienceCount(filter: AudienceFilter): Promise<number> {
+/** Search matching users (by name/email) for the single-recipient picker. */
+export async function searchUsers(query: string): Promise<{ id: string; name: string; email: string }[]> {
   await requireAdmin();
-  const rows = await matchingRecipients(filter);
+  const q = `%${query.toLowerCase().trim()}%`;
+  if (!query.trim()) return [];
+  const res = await db.execute(sql`
+    SELECT u.id, u.name, u.email
+    FROM "user" u
+    WHERE lower(u.name) LIKE ${q} OR lower(u.email) LIKE ${q}
+    ORDER BY u."createdAt" DESC LIMIT 25
+  `);
+  return (res.rows as { id: string; name: string; email: string }[]);
+}
+
+/**
+ * Live recipient count for the compose form's audience preview. When a single
+ * user is targeted (`userId`), the count reflects just that user.
+ */
+export async function getAudienceCount(filter: AudienceFilter, userId?: string): Promise<number> {
+  await requireAdmin();
+  const rows = await matchingRecipients(filter, userId);
   return rows.length;
 }
 
@@ -104,7 +127,7 @@ export async function sendBroadcast(input: { subject: string; bodyHtml: string; 
   if (!input.subject.trim()) throw new Error("Subject is required");
   if (!input.bodyHtml.trim()) throw new Error("Message body is required");
 
-  const recipients = await matchingRecipients(input.filter);
+  const recipients = await matchingRecipients(input.filter, input.filter.userId);
   let sentCount = 0;
   let failedCount = 0;
 

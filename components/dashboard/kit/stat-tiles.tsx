@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 /**
@@ -11,16 +12,13 @@ export type Stat = {
   hint?: string;
   /** Colours the hint green (positive). Neutral grey otherwise. */
   positive?: boolean;
+  /** When set, renders the whole tile as a link to this route. */
+  href?: string;
 };
 
 export function StatTile({ stat, className }: { stat: Stat; className?: string }) {
-  return (
-    <div
-      className={cn(
-        "rounded-2xl border border-[#ececec] bg-white p-4 dark:border-white/10 dark:bg-[#1e1e1e]",
-        className,
-      )}
-    >
+  const body = (
+    <>
       <p className="text-[12.5px] font-medium text-[#9a9a9a]">{stat.label}</p>
       <p className="mt-1.5 text-[26px] font-bold leading-none text-[#1e1e1e] dark:text-white">{stat.value}</p>
       {stat.hint && (
@@ -28,8 +26,17 @@ export function StatTile({ stat, className }: { stat: Stat; className?: string }
           {stat.hint}
         </p>
       )}
-    </div>
+    </>
   );
+  const classes = "rounded-2xl border border-[#ececec] bg-white p-4 dark:border-white/10 dark:bg-[#1e1e1e]";
+  if (stat.href) {
+    return (
+      <Link href={stat.href} className={cn(classes, className, "block transition-shadow hover:shadow-md hover:border-[#ffd716]")}>
+        {body}
+      </Link>
+    );
+  }
+  return <div className={cn(classes, className)}>{body}</div>;
 }
 
 /**

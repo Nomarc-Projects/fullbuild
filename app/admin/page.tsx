@@ -40,6 +40,7 @@ export default async function AdminOverviewPage() {
   const adminName = user?.name || "Admin";
 
   const stats: Stat[] = [
+    { label: "Total Users", value: s.totalUsers, hint: `${s.professionals} professionals · ${s.exhibitors} exhibitors`, href: "/admin/users" },
     { label: "New Signups", value: s.newSignupsThisMonth, hint: `${s.newSignupsChangePct >= 0 ? "+" : ""}${s.newSignupsChangePct}% vs last month`, positive: s.newSignupsChangePct >= 0 },
     { label: "Pending Verifications", value: s.pendingTier1 + s.pendingTier2, hint: `${s.pendingTier1} Tier 1 · ${s.pendingTier2} Tier 2` },
     { label: "Pending Ad Reviews", value: s.pendingAdReviews, hint: `${s.pendingAdProfiles} Profiles, ${s.pendingAdProducts} Products` },

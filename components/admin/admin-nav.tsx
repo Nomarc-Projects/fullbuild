@@ -63,6 +63,7 @@ const NAV: Group[] = [
     { label: "Active Campaigns", href: "/admin/advertising/campaigns", icon: CampaignIcon },
   ]},
   { title: "Communications", items: [
+    { label: "Send Email", href: "/admin/broadcasts", icon: Mail },
     { label: "Audience Segments", href: "/admin/audience-segments", icon: UsersRound },
     { label: "Email Campaigns", href: "/admin/email-campaigns", icon: Mail },
     { label: "Campaign Tracking", href: "/admin/campaigns", icon: LineChart },
