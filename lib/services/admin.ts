@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/client";
-import { profile, company, paymentTransaction } from "@/lib/db/schema";
+import { profile, company, paymentTransaction, job, product } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
 import { requireUserId } from "@/lib/server-user";
 import { requireAdmin, requireSuperAdmin, isAdminRole } from "@/lib/authz";
@@ -1211,6 +1211,205 @@ export async function deleteAdminProduct(productId: string) {
   await db.execute(sql`DELETE FROM product WHERE id = ${productId}`);
   await logAudit(admin, "delete_product", "product", productId);
   revalidatePath("/admin/marketplace/products");
+}
+
+/* ── Admin authoring (CREATE / UPDATE) for jobs & products ───────────────
+ * Super_admin can post and edit jobs/products directly, on behalf of a chosen
+ * owner, rather than only moderating user-submitted rows. These reuse the
+ * same field mapping the member dashboards use (lib/services/jobs.ts and
+ * lib/services/products.ts) so an admin-authored row is shaped identically. */
+
+export type AdminUserOption = { id: string; name: string; email: string | null; role: string | null };
+export async function getAdminUserPicker(search = ""): Promise<AdminUserOption[]> {
+  await requireAdmin();
+  const s = search.trim();
+  const res = s
+    ? await db.execute(sql`
+        SELECT u.id, u.name, u.email, u.role FROM "user" u
+        WHERE u.name ILIKE ${`%${s}%`} OR u.email ILIKE ${`%${s}%`}
+        ORDER BY u."createdAt" DESC LIMIT 50
+      `)
+    : await db.execute(sql`
+        SELECT u.id, u.name, u.email, u.role FROM "user" u
+        ORDER BY u."createdAt" DESC LIMIT 50
+      `);
+  return (res.rows as Record<string, unknown>[]).map((r) => ({
+    id: String(r.id), name: String(r.name ?? "—"), email: r.email ? String(r.email) : null, role: r.role ? String(r.role) : null,
+  }));
+}
+
+export type AdminCompanyOption = { id: string; name: string; industry: string | null; ownerName: string };
+export async function getAdminCompanyPicker(search = ""): Promise<AdminCompanyOption[]> {
+  await requireAdmin();
+  const s = search.trim();
+  const res = s
+    ? await db.execute(sql`
+        SELECT c.id, c.name, c.industry, u.name AS owner_name FROM company c
+        JOIN "user" u ON u.id = c.owner_user_id
+        WHERE c.name ILIKE ${`%${s}%`}
+        ORDER BY c."createdAt" DESC LIMIT 50
+      `)
+    : await db.execute(sql`
+        SELECT c.id, c.name, c.industry, u.name AS owner_name FROM company c
+        JOIN "user" u ON u.id = c.owner_user_id
+        ORDER BY c."createdAt" DESC LIMIT 50
+      `);
+  return (res.rows as Record<string, unknown>[]).map((r) => ({
+    id: String(r.id), name: String(r.name ?? "—"), industry: r.industry ? String(r.industry) : null, ownerName: String(r.owner_name ?? "—"),
+  }));
+}
+
+export type AdminJobInput = {
+  title: string; company?: string; location?: string; employmentType?: string; experienceLevel?: string;
+  workModel?: string; salaryMin?: string; salaryMax?: string; currency?: string; description?: string; requirements?: string;
+  requirementList?: string[]; skills?: string[]; benefits?: string[];
+  requireResume?: boolean; requirePortfolio?: boolean; requireCoverLetter?: boolean;
+  deadline?: string; applyMethod?: "nomarc" | "url" | "email"; applyTarget?: string;
+  recruiterName?: string; recruiterTitle?: string;
+};
+
+const adminJobValues = (input: AdminJobInput, status: string, draft: boolean) => {
+  const num = (s?: string) => { if (!s) return null; const n = Number(String(s).replace(/[^\d]/g, "")); return Number.isFinite(n) && n > 0 ? n : null; };
+  const cleanList = (v?: string[]) => { const out = (v ?? []).map((s) => s.trim()).filter(Boolean); return out.length ? Array.from(new Set(out)) : null; };
+  return {
+    title: input.title.trim(),
+    company: input.company?.trim() || null, location: input.location?.trim() || null,
+    employmentType: input.employmentType || null, experienceLevel: input.experienceLevel || null,
+    workModel: input.workModel || null,
+    salaryMin: num(input.salaryMin), salaryMax: num(input.salaryMax), currency: input.currency || "NGN",
+    description: input.description ?? null, requirements: input.requirements ?? null,
+    requirementList: cleanList(input.requirementList), skills: cleanList(input.skills), benefits: cleanList(input.benefits),
+    requireResume: input.requireResume ?? null, requirePortfolio: input.requirePortfolio ?? null, requireCoverLetter: input.requireCoverLetter ?? null,
+    deadline: input.deadline || null, applyMethod: input.applyMethod || "nomarc", applyTarget: input.applyTarget || null,
+    recruiterName: input.recruiterName || null, recruiterTitle: input.recruiterTitle || null,
+    status, draft,
+  };
+};
+
+export async function createAdminJob(ownerUserId: string, input: AdminJobInput, publish = true): Promise<string> {
+  const admin = await requireAdmin();
+  if (!ownerUserId) throw new Error("Select an owner");
+  if (!input.title?.trim()) throw new Error("Job title is required");
+  const draft = !publish;
+  const [row] = await db.insert(job).values({ ownerUserId, ...adminJobValues(input, "open", draft) }).returning({ id: job.id });
+  await logAudit(admin, "create_job", "job", row.id, `owner=${ownerUserId}`);
+  revalidatePath("/admin/marketplace/jobs");
+  return row.id;
+}
+
+export async function updateAdminJob(jobId: string, ownerUserId: string, input: AdminJobInput) {
+  const admin = await requireAdmin();
+  if (!ownerUserId) throw new Error("Select an owner");
+  if (!input.title?.trim()) throw new Error("Job title is required");
+  const [existing] = await db.select({ id: job.id, status: job.status, draft: job.draft }).from(job).where(eq(job.id, jobId)).limit(1);
+  if (!existing) throw new Error("Job not found");
+  await db.update(job).set(adminJobValues(input, existing.status ?? "open", existing.draft ?? false)).where(eq(job.id, jobId));
+  await db.update(job).set({ ownerUserId }).where(eq(job.id, jobId));
+  await logAudit(admin, "update_job", "job", jobId, `owner=${ownerUserId}`);
+  revalidatePath("/admin/marketplace/jobs");
+}
+
+export type AdminJobDetail = AdminJob & {
+  ownerUserId: string; requirementsList: string[]; skills: string[]; benefits: string[];
+  requireResume: boolean; requirePortfolio: boolean; requireCoverLetter: boolean;
+  deadline: string | null; salaryMin: number | null; salaryMax: number | null; currency: string | null;
+  applyMethod: "nomarc" | "url" | "email" | null; applyTarget: string | null;
+};
+export async function getAdminJobForEdit(jobId: string): Promise<AdminJobDetail | null> {
+  await requireAdmin();
+  const res = await db.execute(sql`
+    SELECT j.*, u.name AS poster_name, u.email AS poster_email FROM job j
+    JOIN "user" u ON u.id = j.owner_user_id WHERE j.id = ${jobId} LIMIT 1
+  `);
+  const r = (res.rows as Record<string, unknown>[])[0];
+  if (!r) return null;
+  return {
+    id: String(r.id), title: String(r.title), posterName: String(r.poster_name ?? "—"), posterEmail: String(r.poster_email ?? ""),
+    company: r.company ? String(r.company) : null, status: String(r.status ?? "open"), draft: r.draft === true,
+    applicants: 0, date: "", location: r.location ? String(r.location) : null,
+    employmentType: r.employment_type ? String(r.employment_type) : null, workModel: r.work_model ? String(r.work_model) : null,
+    experienceLevel: r.experience_level ? String(r.experience_level) : null,
+    salary: "", description: r.description ? String(r.description) : null, requirements: r.requirements ? String(r.requirements) : null,
+    ownerUserId: String(r.owner_user_id),
+    requirementsList: Array.isArray(r.requirement_list) ? (r.requirement_list as string[]) : [],
+    skills: Array.isArray(r.skills) ? (r.skills as string[]) : [], benefits: Array.isArray(r.benefits) ? (r.benefits as string[]) : [],
+    requireResume: r.require_resume === true, requirePortfolio: r.require_portfolio === true, requireCoverLetter: r.require_cover_letter === true,
+    deadline: r.deadline ? String(r.deadline) : null, salaryMin: r.salary_min ? Number(r.salary_min) : null, salaryMax: r.salary_max ? Number(r.salary_max) : null, currency: r.currency ? String(r.currency) : null,
+    applyMethod: (["nomarc", "url", "email"] as const).includes(String(r.apply_method) as "nomarc" | "url" | "email") ? (String(r.apply_method) as "nomarc" | "url" | "email") : null,
+    applyTarget: r.apply_target ? String(r.apply_target) : null,
+  };
+}
+
+export type AdminProductInput = {
+  name: string; slug?: string; sku?: string; category?: string; type?: string; vendorName?: string;
+  description?: string; tags?: string[]; availability?: string; coverUrl?: string; gallery?: string[];
+  specs?: { label: string; value: string }[];
+  materialGrade?: string;
+  retailMin?: string | number; retailMax?: string | number; wholesaleMin?: string | number; wholesaleMax?: string | number;
+  costPerItem?: string | number; stock?: string | number; unit?: string; seoTitle?: string; seoDescription?: string;
+  status?: "active" | "draft" | "archived";
+};
+
+const adminProductValues = (input: AdminProductInput) => {
+  const num = (v?: string | number | null) => { if (v == null || v === "") return null; const n = typeof v === "number" ? v : parseInt(String(v).replace(/[^0-9]/g, ""), 10); return Number.isNaN(n) ? null : n; };
+  const slugify = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+  return {
+    name: input.name.trim(),
+    slug: input.slug?.trim() || slugify(input.name),
+    sku: input.sku?.trim() || null, category: input.category || null, type: input.type || null,
+    vendorName: input.vendorName || null, description: input.description || null, materialGrade: input.materialGrade || null,
+    tags: input.tags && input.tags.length ? input.tags : null,
+    availability: input.availability || null, coverUrl: input.coverUrl || null,
+    gallery: input.gallery && input.gallery.length ? input.gallery : null,
+    specs: input.specs && input.specs.length ? input.specs.filter((s) => s.label?.trim()) : null,
+    retailMin: num(input.retailMin), retailMax: num(input.retailMax),
+    wholesaleMin: num(input.wholesaleMin), wholesaleMax: num(input.wholesaleMax),
+    costPerItem: num(input.costPerItem), stock: num(input.stock) ?? 0, unit: input.unit || null,
+    seoTitle: input.seoTitle || null, seoDescription: input.seoDescription || null,
+    status: input.status || "active", draft: (input.status || "active") === "draft",
+  };
+};
+
+export async function createAdminProduct(companyId: string, input: AdminProductInput): Promise<string> {
+  const admin = await requireAdmin();
+  if (!companyId) throw new Error("Select an owner company");
+  if (!input.name?.trim()) throw new Error("Product name is required");
+  const [row] = await db.insert(product).values({ companyId, ...adminProductValues(input) }).returning({ id: product.id });
+  await logAudit(admin, "create_product", "product", row.id, `company=${companyId}`);
+  revalidatePath("/admin/marketplace/products");
+  return row.id;
+}
+
+export async function updateAdminProduct(productId: string, companyId: string, input: AdminProductInput) {
+  const admin = await requireAdmin();
+  if (!companyId) throw new Error("Select an owner company");
+  if (!input.name?.trim()) throw new Error("Product name is required");
+  const [existing] = await db.select({ id: product.id, companyId: product.companyId }).from(product).where(eq(product.id, productId)).limit(1);
+  if (!existing) throw new Error("Product not found");
+  await db.update(product).set({ ...adminProductValues(input), companyId, updatedAt: new Date() }).where(eq(product.id, productId));
+  await logAudit(admin, "update_product", "product", productId, `company=${companyId}`);
+  revalidatePath("/admin/marketplace/products");
+}
+
+export type AdminProductForEdit = {
+  id: string; companyId: string; name: string; sku: string | null; category: string | null; type: string | null;
+  vendorName: string | null; description: string | null; materialGrade: string | null; tags: string[]; specs: { label: string; value: string }[];
+  retailMin: number | null; retailMax: number | null; wholesaleMin: number | null; wholesaleMax: number | null;
+  costPerItem: number | null; stock: number; unit: string | null; coverUrl: string | null; gallery: string[];
+  availability: string | null; status: string | null;
+};
+export async function getAdminProductForEdit(productId: string): Promise<AdminProductForEdit | null> {
+  await requireAdmin();
+  const [r] = await db.select().from(product).where(eq(product.id, productId)).limit(1);
+  if (!r) return null;
+  return {
+    id: r.id, companyId: r.companyId, name: r.name, sku: r.sku, category: r.category, type: r.type,
+    vendorName: r.vendorName, description: r.description, materialGrade: r.materialGrade, tags: r.tags ?? [],
+    specs: r.specs ?? [], retailMin: r.retailMin, retailMax: r.retailMax,
+    wholesaleMin: r.wholesaleMin, wholesaleMax: r.wholesaleMax, costPerItem: r.costPerItem,
+    stock: r.stock ?? 0, unit: r.unit, coverUrl: r.coverUrl, gallery: r.gallery ?? [],
+    availability: r.availability, status: r.status,
+  };
 }
 
 /* ── Admin finance ────────────────────────────────────────────────────── */

@@ -9,6 +9,7 @@ import {
   ArrowLeft, Sun, Moon, PanelLeft, PanelLeftClose,
   ShoppingBag, Package, MessageSquare, Megaphone, Radio as CampaignIcon,
   UsersRound, Mail, Wrench, ScrollText, LineChart, CalendarDays, Store,
+  Newspaper, Activity, Tags,
   type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "@/components/theme";
@@ -54,6 +55,11 @@ const NAV: Group[] = [
   { title: "Marketplace & Catalog", items: [
     { label: "Job Board", href: "/admin/marketplace/jobs", icon: ShoppingBag },
     { label: "Exhibition Hub", href: "/admin/marketplace/products", icon: Package },
+  ]},
+  { title: "Content", items: [
+    { label: "Blog", href: "/admin/blog", icon: Newspaper },
+    { label: "News Ticker", href: "/admin/news-ticker", icon: Activity },
+    { label: "Taxonomy", href: "/admin/taxonomy", icon: Tags },
   ]},
   { title: "Industry", items: [
     { label: "Events", href: "/admin/events", icon: CalendarDays },

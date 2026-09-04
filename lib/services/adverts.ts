@@ -30,10 +30,12 @@ export type Advert = {
   promotionId?: string | null;
 };
 
-async function requireAdmin() {
-  await requireUserId();
+async function requireAdmin(): Promise<string> {
+  const uid = await requireUserId();
   const session = await auth.api.getSession({ headers: await headers() });
-  if ((session?.user as { role?: string } | undefined)?.role !== "admin") throw new Error("Forbidden");
+  const role = (session?.user as { role?: string } | undefined)?.role;
+  if (role !== "admin" && role !== "super_admin") throw new Error("Forbidden");
+  return uid;
 }
 
 const map = (r: typeof advert.$inferSelect): Advert => ({

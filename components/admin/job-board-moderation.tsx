@@ -3,10 +3,11 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Search, Eye, Lock, Unlock, Trash2 } from "lucide-react";
+import { Search, Eye, Lock, Unlock, Trash2, Plus, Pencil } from "lucide-react";
 import { DataTable, KebabMenu, StatusBadge, SlideOverDrawer, type DataTableColumn, type BadgeTone } from "@/components/dashboard/kit";
 import { FiltersRail, type FilterGroup } from "@/components/admin/filters-rail";
-import { suspendAdminJob, restoreAdminJob, deleteAdminJob, type AdminJob } from "@/lib/services/admin";
+import { AdminJobFormDrawer } from "@/components/admin/admin-job-form";
+import { suspendAdminJob, restoreAdminJob, deleteAdminJob, getAdminJobForEdit, type AdminJob, type AdminJobDetail } from "@/lib/services/admin";
 
 const STATUS_TONE: Record<string, BadgeTone> = { open: "green", suspended: "amber", closed: "grey" };
 
@@ -18,6 +19,8 @@ export function JobBoardModeration({ rows }: { rows: AdminJob[] }) {
   const [experienceLevel, setExperienceLevel] = useState("");
   const [workModel, setWorkModel] = useState("");
   const [selected, setSelected] = useState<AdminJob | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<AdminJobDetail | null>(null);
   const [, start] = useTransition();
 
   const filtered = useMemo(() => rows.filter((j) => {
@@ -34,6 +37,15 @@ export function JobBoardModeration({ rows }: { rows: AdminJob[] }) {
   function del(j: AdminJob) {
     if (!window.confirm(`Delete "${j.title}"? This cannot be undone.`)) return;
     start(() => deleteAdminJob(j.id).then(() => { toast.success("Job deleted"); setSelected(null); router.refresh(); }).catch(() => { toast.error("Couldn't delete"); }));
+  }
+
+  function edit(j: AdminJob) {
+    start(() => getAdminJobForEdit(j.id).then((d) => { if (d) { setEditing(d); setFormOpen(true); } else { toast.error("Job not found"); } }).catch(() => { toast.error("Couldn't load job"); }));
+  }
+
+  function openNew() {
+    setEditing(null);
+    setFormOpen(true);
   }
 
   const columns: DataTableColumn<AdminJob>[] = [
@@ -57,11 +69,12 @@ export function JobBoardModeration({ rows }: { rows: AdminJob[] }) {
       <FiltersRail groups={filterGroups} />
 
       <div className="min-w-0 flex-1">
-        <div className="mb-4">
-          <div className="relative max-w-[420px]">
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <div className="relative max-w-[420px] flex-1">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b3b3b3]" />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by job title, poster name, or company…" className="w-full rounded-lg border border-[#e3e3e3] bg-white py-2 pl-8 pr-3 text-[13px] text-[#1e1e1e] placeholder:text-[#b3b3b3] focus:border-[#ffd716] focus:outline-none dark:border-white/15 dark:bg-[#1e1e1e] dark:text-white" />
           </div>
+          <button onClick={openNew} className="inline-flex items-center gap-1.5 rounded-lg bg-[#1e1e1e] px-3.5 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-[#333] dark:bg-white dark:text-[#1e1e1e] dark:hover:bg-[#e5e5e5]"><Plus size={15} /> Post a Job</button>
         </div>
 
         <DataTable
@@ -72,6 +85,7 @@ export function JobBoardModeration({ rows }: { rows: AdminJob[] }) {
           rowHoverActions={(j) => (
             <KebabMenu items={[
               { icon: Eye, label: "View Job Details", onClick: () => setSelected(j) },
+              { icon: Pencil, label: "Edit Job", onClick: () => edit(j) },
               { icon: Lock, label: "Suspend Job", onClick: () => suspend(j), hidden: j.status === "suspended" },
               { icon: Unlock, label: "Restore Job", onClick: () => restore(j), hidden: j.status !== "suspended" },
               { icon: Trash2, label: "Delete Job", danger: true, onClick: () => del(j) },
@@ -110,6 +124,12 @@ export function JobBoardModeration({ rows }: { rows: AdminJob[] }) {
           </div>
         )}
       </SlideOverDrawer>
+
+      <AdminJobFormDrawer
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        initial={editing}
+      />
     </div>
   );
 }

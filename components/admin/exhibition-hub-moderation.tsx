@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Search, Eye, Lock, Unlock, Trash2 } from "lucide-react";
+import { Search, Eye, Lock, Unlock, Trash2, Plus, Pencil } from "lucide-react";
 import { DataTable, KebabMenu, StatusBadge, SlideOverDrawer, type DataTableColumn, type BadgeTone } from "@/components/dashboard/kit";
 import { FiltersRail, type FilterGroup } from "@/components/admin/filters-rail";
-import { suspendAdminProduct, restoreAdminProduct, deleteAdminProduct, getAdminProductDetail, type AdminProduct, type AdminProductDetail } from "@/lib/services/admin";
+import { AdminProductFormDrawer } from "@/components/admin/admin-product-form";
+import { suspendAdminProduct, restoreAdminProduct, deleteAdminProduct, getAdminProductDetail, getAdminProductForEdit, type AdminProduct, type AdminProductDetail, type AdminProductForEdit } from "@/lib/services/admin";
 
 const STATUS_TONE: Record<string, BadgeTone> = { active: "green", suspended: "amber", draft: "grey" };
 
@@ -17,6 +18,8 @@ export function ExhibitionHubModeration({ rows }: { rows: AdminProduct[] }) {
   const [industry, setIndustry] = useState("");
   const [selected, setSelected] = useState<AdminProduct | null>(null);
   const [detail, setDetail] = useState<AdminProductDetail | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<AdminProductForEdit | null>(null);
   const [, start] = useTransition();
 
   useEffect(() => {
@@ -39,6 +42,15 @@ export function ExhibitionHubModeration({ rows }: { rows: AdminProduct[] }) {
   function del(p: { id: string; name: string }) {
     if (!window.confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
     start(() => deleteAdminProduct(p.id).then(() => { toast.success("Product deleted"); setSelected(null); router.refresh(); }).catch(() => { toast.error("Couldn't delete"); }));
+  }
+
+  function edit(p: AdminProduct) {
+    start(() => getAdminProductForEdit(p.id).then((d) => { if (d) { setEditing(d); setFormOpen(true); } else { toast.error("Product not found"); } }).catch(() => { toast.error("Couldn't load product"); }));
+  }
+
+  function openNew() {
+    setEditing(null);
+    setFormOpen(true);
   }
 
   const columns: DataTableColumn<AdminProduct>[] = [
@@ -67,11 +79,12 @@ export function ExhibitionHubModeration({ rows }: { rows: AdminProduct[] }) {
       <FiltersRail groups={filterGroups} />
 
       <div className="min-w-0 flex-1">
-        <div className="mb-4">
-          <div className="relative max-w-[420px]">
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <div className="relative max-w-[420px] flex-1">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b3b3b3]" />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by product, exhibitor, or industry…" className="w-full rounded-lg border border-[#e3e3e3] bg-white py-2 pl-8 pr-3 text-[13px] text-[#1e1e1e] placeholder:text-[#b3b3b3] focus:border-[#ffd716] focus:outline-none dark:border-white/15 dark:bg-[#1e1e1e] dark:text-white" />
           </div>
+          <button onClick={openNew} className="inline-flex items-center gap-1.5 rounded-lg bg-[#1e1e1e] px-3.5 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-[#333] dark:bg-white dark:text-[#1e1e1e] dark:hover:bg-[#e5e5e5]"><Plus size={15} /> Create Product</button>
         </div>
 
         <DataTable
@@ -82,6 +95,7 @@ export function ExhibitionHubModeration({ rows }: { rows: AdminProduct[] }) {
           rowHoverActions={(p) => (
             <KebabMenu items={[
               { icon: Eye, label: "View Product Details", onClick: () => setSelected(p) },
+              { icon: Pencil, label: "Edit Product", onClick: () => edit(p) },
               { icon: Lock, label: "Suspend Product", onClick: () => suspend(p), hidden: p.status === "suspended" },
               { icon: Unlock, label: "Restore Product", onClick: () => restore(p), hidden: p.status !== "suspended" },
               { icon: Trash2, label: "Delete Product", danger: true, onClick: () => del(p) },
@@ -148,6 +162,12 @@ export function ExhibitionHubModeration({ rows }: { rows: AdminProduct[] }) {
           </div>
         )}
       </SlideOverDrawer>
+
+      <AdminProductFormDrawer
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        initial={editing}
+      />
     </div>
   );
 }
