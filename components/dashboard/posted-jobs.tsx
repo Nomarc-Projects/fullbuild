@@ -4,10 +4,11 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Users, Briefcase, Trash2, Lock, Unlock, Copy, FileText } from "lucide-react";
+import { Plus, Users, Briefcase, Trash2, Lock, Unlock, Copy, FileText, Pencil } from "lucide-react";
 import { Modal, GhostButton } from "@/components/ui/modal";
 import { DashboardTabs, KebabMenu, StatusBadge, EmptyState, type TabItem } from "@/components/dashboard/kit";
 import { PostingGuidelinesDrawer } from "@/components/dashboard/posting-guidelines-drawer";
+import { JobEditDrawer } from "@/components/dashboard/job-edit-drawer";
 import { VerificationRequiredModal } from "@/components/dashboard/shared/verification-required-modal";
 import { setJobStatus, publishDraftJob, deleteJob, duplicateJobAsDraft, type PostedJob } from "@/lib/services/jobs";
 import { getKycState } from "@/lib/services/kyc";
@@ -24,6 +25,7 @@ export function PostedJobs({ jobs = [], initialTab = "active" }: { jobs?: Posted
   const [list, setList] = useState(jobs);
   const [tab, setTab] = useState<Tab>(initialTab);
   const [delId, setDelId] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const [guidelinesOpen, setGuidelinesOpen] = useState(false);
   const [, start] = useTransition();
 
@@ -102,6 +104,7 @@ export function PostedJobs({ jobs = [], initialTab = "active" }: { jobs?: Posted
                   )}
                 </div>
                 <div className="flex flex-shrink-0 items-center gap-2">
+                  <button onClick={() => setEditId(j.id)} className="inline-flex items-center gap-1 text-[12.5px] font-medium text-[#6b6b6b] hover:text-[#1e1e1e] dark:text-white/60 dark:hover:text-white transition-colors"><Pencil size={13} /> Edit</button>
                   <button onClick={() => setDelId(j.id)} className="text-[12.5px] font-medium text-[#9a9a9a] hover:text-[#e5484d] transition-colors">Remove</button>
                   <button onClick={() => publish(j)} className="rounded-lg bg-[#ffd716] px-3.5 py-2 text-[12.5px] font-semibold text-[#1e1e1e] transition-colors hover:bg-[#e6c114]">Publish</button>
                 </div>
@@ -126,6 +129,7 @@ export function PostedJobs({ jobs = [], initialTab = "active" }: { jobs?: Posted
                 <KebabMenu
                   items={[
                     { icon: Users, label: "View Applicants", onClick: () => router.push(`/dashboard/jobs/posted/${j.id}`) },
+                    { icon: Pencil, label: "Edit Job", onClick: () => setEditId(j.id) },
                     j.status === "open"
                       ? { icon: Lock, label: "Close Job", onClick: () => toggleStatus(j) }
                       : { icon: Unlock, label: "Reopen Job", onClick: () => toggleStatus(j) },
@@ -149,6 +153,7 @@ export function PostedJobs({ jobs = [], initialTab = "active" }: { jobs?: Posted
       </Modal>
 
       <PostingGuidelinesDrawer open={guidelinesOpen} onClose={() => setGuidelinesOpen(false)} />
+      <JobEditDrawer open={!!editId} onClose={() => setEditId(null)} jobId={editId} />
     </div>
   );
 }

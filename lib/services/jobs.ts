@@ -68,6 +68,61 @@ export async function createJob(input: {
   return row.id;
 }
 
+export type JobInput = {
+  title: string; company?: string; location?: string; employmentType?: string; experienceLevel?: string;
+  workModel?: string; salaryMin?: string; salaryMax?: string; currency?: string; description?: string; requirements?: string;
+  requirementList?: string[]; skills?: string[]; benefits?: string[];
+  requireResume?: boolean; requirePortfolio?: boolean; requireCoverLetter?: boolean;
+  deadline?: string; applyMethod?: "nomarc" | "url" | "email"; applyTarget?: string;
+  recruiterName?: string; recruiterTitle?: string;
+};
+
+/** The full field set for editing an own job, owner-gated. Reuses the same
+ *  columns createJob writes so an edited row is shaped identically. */
+export type OwnedJobDetail = JobInput & {
+  id: string; salaryMinRaw: number | null; salaryMaxRaw: number | null; status: string; draft: boolean;
+};
+
+export async function getOwnedJobForEdit(jobId: string): Promise<OwnedJobDetail | null> {
+  const uid = await requireUserId();
+  const [j] = await db.select().from(job).where(and(eq(job.id, jobId), eq(job.ownerUserId, uid))).limit(1);
+  if (!j) return null;
+  return {
+    id: j.id,
+    title: j.title, company: j.company ?? undefined, location: j.location ?? undefined,
+    employmentType: j.employmentType ?? undefined, experienceLevel: j.experienceLevel ?? undefined, workModel: j.workModel ?? undefined,
+    salaryMin: j.salaryMin != null ? String(j.salaryMin) : undefined, salaryMax: j.salaryMax != null ? String(j.salaryMax) : undefined,
+    currency: j.currency ?? undefined,
+    description: j.description ?? undefined, requirements: j.requirements ?? undefined,
+    requirementList: j.requirementList ?? [], skills: j.skills ?? [], benefits: j.benefits ?? [],
+    requireResume: !!j.requireResume, requirePortfolio: !!j.requirePortfolio, requireCoverLetter: !!j.requireCoverLetter,
+    deadline: j.deadline ? j.deadline.slice(0, 10) : undefined,
+    applyMethod: ["nomarc", "url", "email"].includes(String(j.applyMethod)) ? (j.applyMethod as "nomarc" | "url" | "email") : "nomarc",
+    applyTarget: j.applyTarget ?? undefined,
+    recruiterName: j.recruiterName ?? undefined, recruiterTitle: j.recruiterTitle ?? undefined,
+    salaryMinRaw: j.salaryMin, salaryMaxRaw: j.salaryMax, status: j.status ?? "open", draft: !!j.draft,
+  };
+}
+
+/** Edit the content fields of an owned job. The owner is checked server-side
+ *  so one user can never mutate another's listing. */
+export async function updateJob(jobId: string, input: JobInput) {
+  const uid = await requireUserId();
+  await assertOwnsJob(jobId, uid);
+  if (!input.title.trim()) throw new Error("Job title is required");
+  await db.update(job).set({
+    title: input.title.trim(), company: input.company || null, location: input.location || null,
+    employmentType: input.employmentType || null, experienceLevel: input.experienceLevel || null, workModel: input.workModel || null,
+    salaryMin: num(input.salaryMin), salaryMax: num(input.salaryMax), currency: input.currency || "NGN",
+    description: input.description || null, requirements: input.requirements || null,
+    requirementList: cleanList(input.requirementList), skills: cleanList(input.skills), benefits: cleanList(input.benefits),
+    requireResume: input.requireResume ?? null, requirePortfolio: input.requirePortfolio ?? null, requireCoverLetter: input.requireCoverLetter ?? null,
+    deadline: input.deadline || null, applyMethod: input.applyMethod || "nomarc", applyTarget: input.applyTarget || null,
+    recruiterName: input.recruiterName || null, recruiterTitle: input.recruiterTitle || null,
+  }).where(eq(job.id, jobId));
+  revalidatePath("/dashboard/jobs/posted");
+}
+
 export type JobPostingDetail = {
   requirements: string[];
   skills: string[];
