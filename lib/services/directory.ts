@@ -22,6 +22,10 @@ export type ProCard = {
   skills: string[];
   ratingAvg: number;
   ratingCount: number;
+  /** True when the professional's practice status is "company" — see
+   *  schema.profile.practiceStatus. Drives the Individual/Company filter on
+   *  Find Professionals. */
+  isCompany: boolean;
 };
 
 export type ProDetail = {
@@ -53,6 +57,7 @@ export async function getProfessionals(): Promise<ProCard[]> {
     SELECT u.id, u.name, COALESCE(p.avatar_url, u.image) AS avatar_url,
            COALESCE(p.headline,'') AS headline, COALESCE(p.location,'') AS location,
            COALESCE(p.availability,'') AS availability, COALESCE(p.verified,false) AS verified,
+           COALESCE(p.practice_status,'') AS practice_status,
            COALESCE(p.success_score,0) AS success_score, COALESCE(p.years_experience,0) AS years,
            COALESCE((SELECT round(avg(rating)::numeric,1) FROM review WHERE subject_type='professional' AND subject_id=u.id),0) AS rating_avg,
            COALESCE((SELECT count(*) FROM review WHERE subject_type='professional' AND subject_id=u.id),0) AS rating_count
@@ -82,6 +87,7 @@ export async function getProfessionals(): Promise<ProCard[]> {
       location: String(r.location ?? ""),
       availability: avail(r.availability as string),
       verified: r.verified === true,
+      isCompany: String(r.practice_status ?? "") === "company",
       successScore: Number(r.success_score ?? 0),
       years: Number(r.years ?? 0),
       skills: skillsList,

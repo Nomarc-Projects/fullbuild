@@ -81,9 +81,9 @@ function DetailView({ row, onBack }: { row: ApplicationRow; onBack: () => void }
           </div>
           <div className="rounded-2xl border border-[#ececec] dark:border-white/10 bg-white dark:bg-[#1e1e1e] p-5">
             <p className="text-[12px] text-[#9a9a9a]">Recruiter</p>
-            <p className="text-sm font-semibold text-[#1e1e1e] dark:text-white">Tunde Bakare</p>
-            <p className="text-[12px] text-[#9a9a9a] mb-3">Talent Lead, {row.company}</p>
-            <button className="w-full py-2 rounded-lg bg-[#ffd716] text-[#1e1e1e] text-[13px] font-semibold hover:bg-[#e6c114] transition-colors">Message recruiter</button>
+            <p className="text-sm font-semibold text-[#1e1e1e] dark:text-white">{row.recruiterName || "Recruiter at " + row.company}</p>
+            <p className="text-[12px] text-[#9a9a9a] mb-3">{row.recruiterName ? "Recruiter, " + row.company : row.company}</p>
+            <Link href={`/dashboard/messages?to=${encodeURIComponent(row.ownerUserId)}`} className="w-full inline-flex items-center justify-center py-2 rounded-lg bg-[#ffd716] text-[#1e1e1e] text-[13px] font-semibold hover:bg-[#e6c114] transition-colors">Message recruiter</Link>
           </div>
         </div>
       </div>

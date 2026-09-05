@@ -2,8 +2,13 @@ import { redirect } from "next/navigation";
 import { ApplyForm } from "@/components/dashboard/professional/apply-form";
 import { getJobById } from "@/lib/services/catalog";
 import { getJobPostingDetail } from "@/lib/services/jobs";
+import { getViewer } from "@/lib/viewer-server";
+import { can } from "@/lib/entitlements";
 
 export default async function JobApplyPage({ searchParams }: { searchParams: Promise<{ job?: string }> }) {
+  const viewer = await getViewer();
+  if (!can(viewer, "jobBoard")) redirect("/dashboard/jobs");
+
   const { job } = await searchParams;
   if (!job) redirect("/dashboard/jobs");
   const j = await getJobById(job);

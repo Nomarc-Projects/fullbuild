@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback, Fragment } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, MessageSquare, ArrowLeft, Loader2, Check, CheckCheck, Clock, ExternalLink, UserPlus, FileText, Download, MoreVertical, Info, Wifi } from "lucide-react";
+import { Search, MessageSquare, ArrowLeft, Loader2, Check, CheckCheck, Clock, ExternalLink, UserPlus, FileText, Download, MoreVertical, Info, Wifi, X } from "lucide-react";
 import { NomarcAvatar } from "@/components/ui/avatar";
 import { getThread, sendMessage, archiveConversation, type ConvoSummary, type ChatThread, type ChatMessage, type MessageType } from "@/lib/services/messaging";
 import { enqueue, dequeue, getPending } from "@/lib/offline-queue";
@@ -13,6 +14,7 @@ import { DocumentPicker, MediaPicker, CameraCapture, VoiceRecorder, ContactPicke
 import { ContactInfoPanel, ChatSearchPanel, ChatActionsMenu } from "./chat-panels";
 import { ChatInputBar } from "./chat-input-bar";
 import { r2Url } from "@/lib/r2-public";
+import type { ProCard } from "@/lib/services/directory";
 
 const FALLBACK = r2Url("site/photo-1494790108377-be9c29b29330.jpg");
 type Tab = "All" | "Unread" | "Archived";
@@ -77,7 +79,7 @@ function presenceLabel(iso: string): string {
   return d === 1 ? "yesterday" : `${d}d ago`;
 }
 
-export function MessagesView({ conversations = [], initialActiveId }: { conversations?: ConvoSummary[]; initialActiveId?: string }) {
+export function MessagesView({ conversations = [], initialActiveId, people = [] }: { conversations?: ConvoSummary[]; initialActiveId?: string; people?: ProCard[] }) {
   const router = useRouter();
   const [activeId, setActiveId] = useState<string | undefined>(initialActiveId ?? conversations[0]?.id);
   const [thread, setThread] = useState<ChatThread | null>(null);
@@ -89,6 +91,8 @@ export function MessagesView({ conversations = [], initialActiveId }: { conversa
   const [infoOpen, setInfoOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [newChatOpen, setNewChatOpen] = useState(false);
+  const [newChatQuery, setNewChatQuery] = useState("");
   const [isOnline, setIsOnline] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeIdRef = useRef(activeId);
@@ -247,7 +251,7 @@ export function MessagesView({ conversations = [], initialActiveId }: { conversa
             <h1 className="text-[20px] font-black text-white dark:text-[#1e1e1e] leading-tight">Messages</h1>
             <p className="text-[12.5px] text-white/50 dark:text-[#1e1e1e]/60 mt-0.5">Chat with hiring teams, applicants and collaborators.</p>
           </div>
-          <button onClick={() => router.push("/dashboard/find-professionals")} className="flex-shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[12.5px] font-semibold bg-white/10 dark:bg-black/10 text-white dark:text-[#1e1e1e] hover:bg-white/20 dark:hover:bg-black/20 transition-colors">
+          <button onClick={() => setNewChatOpen(true)} className="flex-shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[12.5px] font-semibold bg-white/10 dark:bg-black/10 text-white dark:text-[#1e1e1e] hover:bg-white/20 dark:hover:bg-black/20 transition-colors">
             <UserPlus size={14} /> New chat
           </button>
         </motion.div>
@@ -270,7 +274,7 @@ export function MessagesView({ conversations = [], initialActiveId }: { conversa
                 ))}
               </div>
             </div>
-            <button onClick={() => router.push("/dashboard/find-professionals")} className="mx-3 mb-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-[#f6f6f6] dark:bg-white/5 text-[12.5px] font-medium text-[#6b6b6b] dark:text-white/70 hover:bg-[#efefef] dark:hover:bg-white/10 transition-colors">
+            <button onClick={() => setNewChatOpen(true)} className="mx-3 mb-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-[#f6f6f6] dark:bg-white/5 text-[12.5px] font-medium text-[#6b6b6b] dark:text-white/70 hover:bg-[#efefef] dark:hover:bg-white/10 transition-colors">
               <UserPlus size={14} /> Find and invite people
             </button>
             <div className="flex-1 overflow-y-auto">
@@ -404,6 +408,19 @@ export function MessagesView({ conversations = [], initialActiveId }: { conversa
         {modal === "poll" && <PollBuilder onSend={sendRich} onClose={() => setModal(null)} />}
         {modal === "event" && <EventBuilder onSend={sendRich} onClose={() => setModal(null)} />}
       </AnimatePresence>
+
+      {/* ── New chat picker ── */}
+      <AnimatePresence>
+        {newChatOpen && (
+          <NewChatPicker
+            people={people}
+            query={newChatQuery}
+            onQuery={setNewChatQuery}
+            onPick={(id) => { setNewChatOpen(false); setNewChatQuery(""); router.push(`/dashboard/messages?to=${encodeURIComponent(id)}`); }}
+            onClose={() => { setNewChatOpen(false); setNewChatQuery(""); }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -414,6 +431,65 @@ function EmptyMessages() {
       <div className="w-14 h-14 rounded-2xl bg-[#fff7cc] dark:bg-[#ffd716]/10 flex items-center justify-center text-[#caa400]"><MessageSquare size={26} /></div>
       <h3 className="mt-4 text-base font-bold text-[#1e1e1e] dark:text-white">No conversations yet</h3>
       <p className="mt-1.5 text-[13px] text-[#9a9a9a] max-w-sm">Message a professional from the directory, an applicant, or a recruiter — your chats will appear here.</p>
+    </div>
+  );
+}
+
+/** Searchable people picker for starting a new conversation. */
+function NewChatPicker({ people, query, onQuery, onPick, onClose }: {
+  people: ProCard[]; query: string; onQuery: (q: string) => void; onPick: (userId: string) => void; onClose: () => void;
+}) {
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? people.filter((p) => `${p.name} ${p.headline} ${p.skills.join(" ") ?? ""}`.toLowerCase().includes(q))
+    : people;
+
+  return (
+    <div className="fixed inset-0 z-[90]">
+      <motion.div className="absolute inset-0 bg-black/40" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
+      <motion.div
+        initial={{ opacity: 0, y: 16, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 16, scale: 0.98 }}
+        transition={{ duration: 0.2 }}
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[440px] max-h-[70vh] bg-white dark:bg-[#1d1d1d] rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#ececec] dark:border-white/10 flex-shrink-0">
+          <h3 className="text-base font-bold text-[#1e1e1e] dark:text-white">New chat</h3>
+          <button onClick={onClose} className="text-[#9a9a9a] hover:text-[#1e1e1e] dark:hover:text-white transition-colors"><X size={18} /></button>
+        </div>
+        <div className="p-4 flex-shrink-0">
+          <div className="relative">
+            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#b3b3b3]" />
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => onQuery(e.target.value)}
+              placeholder="Search name, role or skill…"
+              className="w-full rounded-full border border-[#e3e3e3] dark:border-white/15 bg-[#f6f6f6] dark:bg-white/5 pl-10 pr-3 py-2 text-[13px] text-[#1e1e1e] dark:text-white placeholder:text-[#b3b3b3] focus:outline-none focus:border-[#ffd716] focus:bg-white dark:focus:bg-[#1e1e1e] transition-colors"
+            />
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto px-2 pb-2">
+          {filtered.length === 0 ? (
+            <p className="text-center text-[13px] text-[#9a9a9a] py-10">No professionals found.</p>
+          ) : filtered.map((p) => (
+            <button key={p.id} onClick={() => onPick(p.id)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left hover:bg-[#f9f9f9] dark:hover:bg-white/5 transition-colors">
+              <NomarcAvatar src={p.avatarUrl} name={p.name} size="md" verified={p.verified} />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-[#1e1e1e] dark:text-white truncate">{p.name}</p>
+                <p className="text-[12px] text-[#9a9a9a] truncate">{p.headline || "Professional"}</p>
+              </div>
+              {p.verified && <span className="flex-shrink-0 inline-flex items-center gap-1 rounded-full bg-[#fff7cc] dark:bg-[#ffd716]/10 px-2 py-0.5 text-[10px] font-semibold text-[#caa400]"><Check size={10} /> Verified</span>}
+            </button>
+          ))}
+        </div>
+        <div className="px-4 py-3 border-t border-[#f0f0f0] dark:border-white/10 flex-shrink-0">
+          <Link href="/dashboard/find-professionals" onClick={onClose} className="text-[12.5px] font-medium text-[#6b6b6b] dark:text-white/60 hover:text-[#1e1e1e] dark:hover:text-white transition-colors flex items-center gap-1.5 justify-center">
+            <ExternalLink size={13} /> Browse the full directory instead
+          </Link>
+        </div>
+      </motion.div>
     </div>
   );
 }

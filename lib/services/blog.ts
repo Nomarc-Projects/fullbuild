@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/client";
 import { blogPost } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
+import { isAdminRole } from "@/lib/authz";
 
 export type PostCard = { slug: string; title: string; excerpt: string; coverUrl: string; tags: string[]; author: string; date: string; readMinutes: number };
 export type PostFull = PostCard & { body: string };
@@ -61,7 +62,10 @@ const fmt = (d: Date | string | null) => (d ? new Date(d).toLocaleDateString("en
 
 async function requireAdmin(): Promise<string> {
   const session = await auth.api.getSession({ headers: await headers() });
-  if ((session?.user as { role?: string } | undefined)?.role !== "admin") throw new Error("Forbidden");
+  // Accept both admin tiers (`isAdminRole`) — the real admin console runs as
+  // `super_admin`, and the old `role !== "admin"` test here locked that account
+  // out of /admin/blog with a "Forbidden" → "something went wrong" error.
+  if (!isAdminRole((session?.user as { role?: string } | undefined)?.role)) throw new Error("Forbidden");
   return session!.user.name ?? "Nomarc";
 }
 

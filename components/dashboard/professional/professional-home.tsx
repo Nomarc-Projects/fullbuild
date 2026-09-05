@@ -20,6 +20,7 @@ import {
 import { RecommendationsPanel } from "@/components/dashboard/shared/recommendations-panel";
 import { AdsBoardPanel } from "@/components/dashboard/shared/ads-board-panel";
 import { TourWizardButton } from "@/components/tour/tour-wizard-button";
+import { CompanySetupModal } from "@/components/dashboard/onboarding/company-setup-modal";
 import { getMyProfile, type ProfileData } from "@/lib/services/profile";
 import { getQualifications, type Experience, type Cert } from "@/lib/services/qualifications";
 import { listMyProjects, deleteProject, type PortfolioProject } from "@/lib/services/projects";
@@ -100,12 +101,13 @@ function ClampText({ text, lines = 5 }: { text: string; lines?: number }) {
 
 /* ── Identity card (wired to profile + qualifications services) ─────────── */
 function IdentityCard({
-  profile, quals, sessionName, sessionAvatar,
+  profile, quals, sessionName, sessionAvatar, secondaryAction,
 }: {
   profile: ProfileData | null;
   quals: { experience: Experience[]; skills: { name: string }[]; specializations: { name: string }[]; certifications: Cert[] } | null;
   sessionName: string;
   sessionAvatar?: string;
+  secondaryAction?: React.ReactNode;
 }) {
   const name = profile?.name || sessionName || "Your Name";
   const headline = profile?.headline || "Construction Professional";
@@ -128,6 +130,7 @@ function IdentityCard({
       }
       editHref="/dashboard/profile"
       editLabel="Edit Profile Info"
+      secondaryAction={secondaryAction}
       className="lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:self-start lg:overflow-y-auto"
     >
       {profile?.bio && (
@@ -362,6 +365,7 @@ export function ProfessionalHome() {
 
   const [tab, setTab] = useState<TabKey>("overview");
   const [showDrafts, setShowDrafts] = useState(false);
+  const [companySetupOpen, setCompanySetupOpen] = useState(false);
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [notifications, setNotifications] = useState<NotificationRow[]>([]);
@@ -509,7 +513,20 @@ export function ProfessionalHome() {
         {/* Left identity card — hidden in full-width Drafts mode (image 98) */}
         {!fullWidth && (
           <aside className="w-full flex-shrink-0 lg:w-[320px]">
-            <IdentityCard profile={profile} quals={quals} sessionName={mounted ? u?.name ?? "" : ""} sessionAvatar={mounted ? u?.image ?? undefined : undefined} />
+            <IdentityCard
+              profile={profile}
+              quals={quals}
+              sessionName={mounted ? u?.name ?? "" : ""}
+              sessionAvatar={mounted ? u?.image ?? undefined : undefined}
+              secondaryAction={
+                <button
+                  onClick={() => setCompanySetupOpen(true)}
+                  className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#e3e3e3] dark:border-white/15 px-4 py-2.5 text-[13.5px] font-semibold text-[#1e1e1e] dark:text-white transition-colors hover:border-[#ffd716] hover:bg-[#fffdf2] dark:hover:bg-[#ffd716]/5"
+                >
+                  <Briefcase size={15} /> Set up as a company
+                </button>
+              }
+            />
           </aside>
         )}
 
@@ -617,6 +634,8 @@ export function ProfessionalHome() {
         <p className="text-sm text-[#6b6b6b] dark:text-white/60">Are you sure you want to delete this project? Once deleted, it cannot be recovered.</p>
         <div className="mt-5 flex justify-end gap-2"><GhostButton onClick={() => setConfirm(null)}>Cancel</GhostButton><button onClick={doConfirm} className="flex items-center gap-1.5 rounded-lg bg-[#e5484d] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#d33a3f]"><Trash2 size={15} /> Delete</button></div>
       </Modal>
+
+      <CompanySetupModal open={companySetupOpen} onClose={() => setCompanySetupOpen(false)} />
     </div>
   );
 }

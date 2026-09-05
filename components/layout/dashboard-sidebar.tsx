@@ -55,13 +55,12 @@ const navGroups: Group[] = [
     { label: "Saved Profile",       href: "/dashboard/people/saved",          icon: BookmarkCheck },
   ]},
   { title: "Jobs", items: [
-    { label: "Post Jobs",    href: "/dashboard/jobs/post",          icon: PlusCircle },
-    { label: "Posted Jobs",  href: "/dashboard/jobs/posted",        icon: Briefcase },
+    { label: "Find Jobs",    href: "/dashboard/jobs",          icon: Search },
+    { label: "Post Jobs",    href: "/dashboard/jobs/post",     icon: PlusCircle },
+    { label: "Posted Jobs",  href: "/dashboard/jobs/posted",   icon: Briefcase },
     { label: "Draft",        href: "/dashboard/jobs/posted/drafts", icon: FileText },
-    { label: "Applications", href: "/dashboard/applications",       icon: Upload },
-  ]},
-  { title: "Find Jobs", href: "/dashboard/jobs", items: [
-    { label: "Saved jobs",   href: "/dashboard/jobs/saved", icon: Bookmark },
+    { label: "Applications", href: "/dashboard/applications",  icon: Upload },
+    { label: "Saved jobs",   href: "/dashboard/jobs/saved",    icon: Bookmark },
   ]},
   { title: "Exhibition Hub", items: [
     { label: "View Product",     href: "/dashboard/products",       icon: Package },

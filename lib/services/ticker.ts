@@ -1,19 +1,13 @@
 "use server";
 
-import { headers } from "next/headers";
 import { asc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/client";
 import { tickerItem } from "@/lib/db/schema";
-import { auth } from "@/lib/auth";
+import { requireAdmin } from "@/lib/authz";
 import { getTickerSpeed } from "@/lib/services/platform-settings-read";
 
 export type TickerItem = { id: string; content: string; href: string | null; active: boolean };
-
-async function requireAdmin() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if ((session?.user as { role?: string } | undefined)?.role !== "admin") throw new Error("Forbidden");
-}
 
 /** Public: active ticker items in order, plus the configured scroll speed.
  *  Both travel together so the strip needs one round trip, not two — it renders

@@ -1,20 +1,13 @@
 "use server";
 
-import { headers } from "next/headers";
 import { desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/client";
 import { announcement } from "@/lib/db/schema";
-import { auth } from "@/lib/auth";
 import { requireUserId } from "@/lib/server-user";
+import { requireAdmin } from "@/lib/authz";
 
 export type Announcement = { id: string; title: string; body: string | null; href: string | null; audience: string; active: boolean; date: string };
-
-async function requireAdmin() {
-  await requireUserId();
-  const session = await auth.api.getSession({ headers: await headers() });
-  if ((session?.user as { role?: string } | undefined)?.role !== "admin") throw new Error("Forbidden");
-}
 
 const map = (r: typeof announcement.$inferSelect): Announcement => ({
   id: r.id, title: r.title, body: r.body, href: r.href, audience: r.audience ?? "all", active: !!r.active,

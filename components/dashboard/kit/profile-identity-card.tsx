@@ -18,6 +18,7 @@ export function ProfileIdentityCard({
   subtitle,
   editHref,
   editLabel = "Edit Profile Info",
+  secondaryAction,
   children,
   className,
 }: {
@@ -28,6 +29,9 @@ export function ProfileIdentityCard({
   subtitle?: React.ReactNode;
   editHref?: string;
   editLabel?: string;
+  /** Optional button rendered directly below the primary edit button. Used on
+   *  the professional dashboard to surface the company/member setup flows. */
+  secondaryAction?: React.ReactNode;
   children?: React.ReactNode;
   className?: string;
 }) {
@@ -49,6 +53,8 @@ export function ProfileIdentityCard({
           {editLabel}
         </Link>
       )}
+
+      {secondaryAction}
 
       {children && <div className="mt-5 space-y-5">{children}</div>}
     </div>

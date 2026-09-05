@@ -4,6 +4,8 @@ export type SampleJob = {
   id: string; title: string; company: string; location: string;
   desc: string; tags: string[]; salary: string; time: string;
   applicants?: number; category?: string;
+  /** Poster identity — set for real DB jobs so `JobDetail` can link to a chat. */
+  ownerUserId?: string; recruiterName?: string;
 };
 
 export const JOB_OVERVIEW = {

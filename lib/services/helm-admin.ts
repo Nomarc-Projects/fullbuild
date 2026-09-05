@@ -1,11 +1,10 @@
 "use server";
 
-import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { auth } from "@/lib/auth";
 import { requireUserId } from "@/lib/server-user";
+import { requireAdmin } from "@/lib/authz";
 import { helmConfigured, helmHealth, reindexKnowledge } from "@/lib/helm/client";
 import { DISCIPLINE_LABEL } from "@/lib/helm/disciplines";
 import type { HelmCitation } from "@/lib/helm/client";
@@ -14,20 +13,14 @@ import type { HelmCitation } from "@/lib/helm/client";
  * Helm admin console — read models + writes for `app/admin/helm/*`.
  *
  * Admin-only by construction: every export re-checks the session role with the
- * same guard the rest of the admin console uses (`role === "admin"`), so a
- * server action can never be replayed by a non-admin even though the pages are
- * already behind the admin layout redirect.
+ * same guard the rest of the admin console uses (`isAdminRole`, accepting both
+ * `admin` and `super_admin`), so a server action can never be replayed by a
+ * non-admin even though the pages are already behind the admin layout redirect.
  *
  * All reads are wrapped so the console degrades to an empty state before
  * migration 0016 is applied, matching the repo's resilient-read convention.
  */
 
-async function requireAdmin(): Promise<string> {
-  const uid = await requireUserId();
-  const session = await auth.api.getSession({ headers: await headers() });
-  if ((session?.user as { role?: string } | undefined)?.role !== "admin") throw new Error("Forbidden");
-  return uid;
-}
 
 const currentPeriod = () => new Date().toISOString().slice(0, 7); // YYYY-MM
 const num = (v: unknown) => Number(v ?? 0) || 0;
