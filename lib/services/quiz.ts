@@ -1,22 +1,14 @@
 "use server";
 
-import { headers } from "next/headers";
 import { eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/client";
 import { quizQuestion, quizAttempt } from "@/lib/db/schema";
-import { auth } from "@/lib/auth";
 import { requireUserId } from "@/lib/server-user";
+import { requireAdmin } from "@/lib/authz";
 import { grantRole } from "@/lib/roles-internal";
 
 const PASS_RATIO = 0.7;
-
-async function requireAdmin() {
-  const uid = await requireUserId();
-  const session = await auth.api.getSession({ headers: await headers() });
-  if ((session?.user as { role?: string } | undefined)?.role !== "admin") throw new Error("Forbidden");
-  return uid;
-}
 
 export type QuizQuestion = {
   id: string;

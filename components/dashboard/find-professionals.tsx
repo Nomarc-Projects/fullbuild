@@ -273,6 +273,9 @@ function Row({ a, b }: { a: string; b: string }) {
 const PRO_SORT_OPTIONS = ["Best match", "Most experience", "Name A–Z"];
 const PRO_PER_PAGE_OPTIONS = [20, 50, 100, 200, 500, 1000];
 type ProView = "list" | "g2" | "g3" | "g4";
+const TYPE_OPTIONS = ["Individual Professional", "Company"] as const;
+type ProType = (typeof TYPE_OPTIONS)[number] | "All";
+const PRO_TYPE_OPTIONS: ProType[] = ["All", "Individual Professional", "Company"];
 
 /* Compact toolbar dropdown (sort, per-page) — mirrors Browse Jobs. */
 function MiniSelect({ value, options, onChange, icon, suffix }: {
@@ -319,6 +322,7 @@ export function FindProfessionals({ role, pros = [], myOpenJobs = [], online = {
   const [view, setView] = useState<ProView>("g3");
   const [sortBy, setSortBy] = useState(PRO_SORT_OPTIONS[0]);
   const [perPage, setPerPage] = useState(50);
+  const [type, setType] = useState<ProType>("All");
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === "Escape") setDrawerOpen(false); };
@@ -344,6 +348,8 @@ export function FindProfessionals({ role, pros = [], myOpenJobs = [], online = {
   let results = pros.filter((p) => {
     const hay = `${p.name} ${p.headline} ${p.location} ${p.skills.join(" ")}`.toLowerCase();
     if (q && !hay.includes(q)) return false;
+    if (type === "Individual Professional" && p.isCompany) return false;
+    if (type === "Company" && !p.isCompany) return false;
     if (occ.length && !occ.some((o) => p.headline.toLowerCase().includes(o.toLowerCase()))) return false;
     if (loc.length && !loc.some((o) => p.location.toLowerCase().includes(o.toLowerCase()))) return false;
     if (expLvl.length && !matchExp(p.years)) return false;
@@ -356,7 +362,7 @@ export function FindProfessionals({ role, pros = [], myOpenJobs = [], online = {
   const pageCount = Math.max(1, Math.ceil(results.length / perPage));
   const safePage = Math.min(page, pageCount);
   const paged = results.slice((safePage - 1) * perPage, safePage * perPage);
-  useEffect(() => { setPage(1); }, [query, sel, sortBy, perPage]);
+  useEffect(() => { setPage(1); }, [query, sel, sortBy, perPage, type]);
 
   const gridCls = view === "list" ? "space-y-3"
     : view === "g2" ? "grid grid-cols-1 sm:grid-cols-2 gap-4"
@@ -404,6 +410,7 @@ export function FindProfessionals({ role, pros = [], myOpenJobs = [], online = {
           <SlidersHorizontal size={13} /> Filters
           {activeCount > 0 && <span className="min-w-[16px] h-[16px] px-1 rounded-full bg-[#1e1e1e] text-white text-[9px] font-bold flex items-center justify-center">{activeCount}</span>}
         </button>
+        <MiniSelect value={type} options={PRO_TYPE_OPTIONS} onChange={(v) => setType(v as ProType)} icon={<Users size={13} className="text-[#9a9a9a]" />} />
         <div className="flex-1" />
         <MiniSelect value={sortBy} options={PRO_SORT_OPTIONS} onChange={(v) => setSortBy(v as string)} icon={<ArrowUpDown size={13} className="text-[#9a9a9a]" />} />
         <MiniSelect value={perPage} options={PRO_PER_PAGE_OPTIONS} onChange={(v) => setPerPage(v as number)} suffix=" / page" />
@@ -462,7 +469,7 @@ export function FindProfessionals({ role, pros = [], myOpenJobs = [], online = {
               </div>
             </div>
 
-            <p className="text-[12px] text-[#9a9a9a] mb-3">Showing <span className="font-semibold text-[#1e1e1e] dark:text-white">{results.length}</span> {results.length === 1 ? "professional" : "professionals"}{activeCount > 0 ? " matching your filters" : ""}</p>
+            <p className="text-[12px] text-[#9a9a9a] mb-3">Showing <span className="font-semibold text-[#1e1e1e] dark:text-white">{results.length}</span> {type === "Company" ? (results.length === 1 ? "company" : "companies") : results.length === 1 ? "professional" : "professionals"}{activeCount > 0 ? " matching your filters" : ""}</p>
 
             {results.length === 0 ? (
               <div className="flex flex-col items-center justify-center text-center py-20">

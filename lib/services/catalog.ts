@@ -5,7 +5,7 @@ import { db } from "@/lib/db/client";
 import { job, product, productVariant, company } from "@/lib/db/schema";
 import type { CatalogProduct } from "@/lib/sample-catalog";
 
-export type JobCard = { id: string; title: string; company: string; location: string; desc: string; tags: string[]; salary: string; time: string };
+export type JobCard = { id: string; title: string; company: string; location: string; desc: string; tags: string[]; salary: string; time: string; ownerUserId: string; recruiterName: string };
 export type AvailabilityKey = "in_stock" | "made_to_order" | "rentable";
 export type ProductCard = {
   id: string; name: string; supplier: string; location: string; avail: string; tags: string[]; img: string;
@@ -60,6 +60,8 @@ export async function getJobsForBrowse(): Promise<JobCard[]> {
     tags: [j.employmentType, j.experienceLevel, j.workModel].filter(Boolean) as string[],
     salary: j.salaryMin != null && j.salaryMax != null ? `${naira(j.salaryMin)} – ${naira(j.salaryMax)} /m` : "",
     time: ago(j.createdAt),
+    ownerUserId: j.ownerUserId,
+    recruiterName: j.recruiterName ?? "",
   }));
 }
 
@@ -84,6 +86,8 @@ export async function getJobById(id: string): Promise<JobCard | null> {
     tags: [j.employmentType, j.experienceLevel, j.workModel].filter(Boolean) as string[],
     salary: j.salaryMin != null && j.salaryMax != null ? `${naira(j.salaryMin)} – ${naira(j.salaryMax)} /m` : "",
     time: ago(j.createdAt),
+    ownerUserId: j.ownerUserId,
+    recruiterName: j.recruiterName ?? "",
   };
 }
 

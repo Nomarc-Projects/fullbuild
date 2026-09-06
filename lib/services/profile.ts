@@ -180,6 +180,7 @@ export async function completeProfessionalOnboarding(input: {
   bio?: string;
   location?: string;
   availability: string;
+  practiceStatus?: PracticeStatus;
   practiceLicenceStatus?: string;
   licenseNumber?: string;
   registrationNumber?: string;
@@ -198,7 +199,13 @@ export async function completeProfessionalOnboarding(input: {
     bio: input.bio ?? "",
     location: input.location ?? "",
     availability: input.availability,
+    // `practiceStatus` (drives the Individual/Company filter on Find
+    // Professionals) is set explicitly by the caller — ordinarily the company
+    // setup flow passes "company". practiceLicenceStatus stays for the legacy
+    // fine-grained licensing state.
+    ...(input.practiceStatus !== undefined ? { practiceStatus: input.practiceStatus } : {}),
     practiceLicenceStatus: input.practiceLicenceStatus ?? "",
+    ...(input.practiceLicenceStatus === "company" ? { practiceStatus: "company" as PracticeStatus } : {}),
     ...(input.licenseNumber !== undefined ? { licenseNumber: input.licenseNumber || undefined } : {}),
     ...(input.registrationNumber !== undefined ? { registrationNumber: input.registrationNumber || undefined } : {}),
     ...(input.practiceCompanyName !== undefined ? { practiceCompanyName: input.practiceCompanyName || undefined } : {}),

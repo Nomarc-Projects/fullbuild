@@ -7,7 +7,7 @@ import { application, job } from "@/lib/db/schema";
 import { requireUserId } from "@/lib/server-user";
 import { notify } from "@/lib/notify-internal";
 
-export type ApplicationRow = { id: string; jobId: string; role: string; company: string; date: string; status: string };
+export type ApplicationRow = { id: string; jobId: string; role: string; company: string; date: string; status: string; ownerUserId: string; recruiterName: string };
 
 function shortDate(d: Date | string) {
   const t = typeof d === "string" ? new Date(d) : d;
@@ -52,18 +52,20 @@ export async function getMyApplications(draft: boolean): Promise<ApplicationRow[
   try {
     const uid = await requireUserId();
     const rows = await db
-      .select({ a: application, jTitle: job.title, jCompany: job.company })
+      .select({ a: application, jTitle: job.title, jCompany: job.company, jOwner: job.ownerUserId, jRecruiter: job.recruiterName })
       .from(application)
       .innerJoin(job, eq(application.jobId, job.id))
       .where(and(eq(application.applicantUserId, uid), eq(application.draft, draft)))
       .orderBy(desc(application.createdAt));
-    return rows.map(({ a, jTitle, jCompany }) => ({
+    return rows.map(({ a, jTitle, jCompany, jOwner, jRecruiter }) => ({
       id: a.id,
       jobId: a.jobId,
       role: jTitle,
       company: jCompany ?? "",
       date: shortDate(a.createdAt),
       status: a.status ?? "applied",
+      ownerUserId: jOwner,
+      recruiterName: jRecruiter ?? "",
     }));
   } catch {
     return [];

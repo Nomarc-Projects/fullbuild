@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { isAdminRole } from "@/lib/authz";
 import { getHelmReviewCount } from "@/lib/services/helm-admin";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { HelmAdminTabs } from "@/components/admin/helm/helm-admin-tabs";
@@ -18,7 +19,7 @@ export default async function HelmAdminLayout({ children }: { children: React.Re
   const session = await auth.api.getSession({ headers: await headers() });
   const role = (session?.user as { role?: string } | undefined)?.role;
   if (!session) redirect("/login?redirect=/admin/helm");
-  if (role !== "admin") redirect("/dashboard");
+  if (!isAdminRole(role)) redirect("/dashboard");
 
   const reviewCount = await getHelmReviewCount();
 

@@ -1,8 +1,10 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getJobById, getJobsForBrowse } from "@/lib/services/catalog";
 import { getJobPostingDetail } from "@/lib/services/jobs";
 import { JOB_OVERVIEW, type SampleJob } from "@/lib/sample-jobs";
 import { JobDetail } from "@/components/dashboard/professional/job-detail";
+import { getViewer } from "@/lib/viewer-server";
+import { can } from "@/lib/entitlements";
 
 /**
  * Real jobs only.
@@ -14,6 +16,9 @@ import { JobDetail } from "@/components/dashboard/professional/job-detail";
  * shows fewer suggestions.
  */
 export default async function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const viewer = await getViewer();
+  if (!can(viewer, "jobBoard")) redirect("/dashboard/jobs");
+
   const { id } = await params;
 
   const job: SampleJob | null = await getJobById(id).catch(() => null);

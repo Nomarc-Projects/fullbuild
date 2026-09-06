@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, MapPin, Briefcase, Layers, Wallet, Clock, Bookmark, FileText, Download } from "lucide-react";
+import { ArrowLeft, MapPin, Briefcase, Layers, Wallet, Clock, Bookmark, FileText, Download, MessageSquare } from "lucide-react";
 import { ShareMenu } from "@/components/ui/share";
 import type { SampleJob } from "@/lib/sample-jobs";
 
@@ -77,6 +77,11 @@ export function JobDetail({ job, overview, detail, similar, otherFromCompany }: 
               <div className="flex items-center gap-2">
                 <button aria-label="Save" className="w-10 h-10 flex items-center justify-center rounded-xl border border-[#e3e3e3] dark:border-white/15 text-[#9a9a9a] hover:border-[#ffd716] hover:text-[#ffd716] transition-colors"><Bookmark size={17} /></button>
                 <ShareMenu title={`${job.title} at ${job.company}`} variant="icon" />
+                {job.ownerUserId ? (
+                  <Link href={`/dashboard/messages?to=${encodeURIComponent(job.ownerUserId)}`} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-[#e3e3e3] dark:border-white/15 text-[#1e1e1e] dark:text-white text-[13px] font-semibold hover:border-[#ffd716] hover:text-[#caa400] transition-colors">
+                    <MessageSquare size={14} /> Message
+                  </Link>
+                ) : null}
                 <Link href={`/dashboard/jobs/apply?job=${job.id}`} className="px-5 py-2.5 rounded-xl bg-[#ffd716] text-[#1e1e1e] text-[13px] font-bold hover:bg-[#e6c114] transition-colors">Apply Now</Link>
               </div>
             </div>
