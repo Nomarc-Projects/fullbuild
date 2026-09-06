@@ -108,6 +108,9 @@
     "fractional-indexing@3.2.0": true,
     "react-big-calendar@1.20.0": true,
     "frappe-gantt@1.2.2": true,
-    "@types/react-big-calendar@1.16.3": true
+    "@types/react-big-calendar@1.16.3": true,
+    "esbuild@0.18.20": true,
+    "sharp@0.34.5": true,
+    "unrs-resolver@1.12.2": true
   }
 }
